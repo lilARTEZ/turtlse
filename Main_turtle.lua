@@ -105,11 +105,12 @@ local function turnTo(location,direction)
     while location[2][1]~=direction do
         location = turn(location,'left')
     end
+    return location
 end
 
 
 
-local function goToPath(location,destiny)
+local function goToPath(location,destiny)--{1x,1y,1z},{2x,2y,2z}
     local position=location[1]
     local distance = {0,0,0}
 
@@ -153,17 +154,45 @@ local function goToPath(location,destiny)
 end
 
 
+local function move(location,destiny)
+    if destiny==5 then
+        turtle.up()
+        location[1][2]=location[1][2]+1
+    elseif destiny==-5 then
+        turtle.down()
+        location[1][2]=location[1][2]-1
+    else
+        location = turnTo(location,destiny)
+        if destiny==1 or destiny==-1 then
+            location[1][1]=location[1][1]+destiny
+        elseif destiny==0 then
+            location[1][3]=location[1][3]+1
+        else
+            location[1][3]=location[1][3]-1
+        end
+        turtle.forward()
+    end
+    writeFile(locationFile,location)
+    return location
+end
 
 
 
 local function goTo()
     location = readFile(locationFile)
     action = readFile(actionFile)
-    for i = 2, #action, 1 do
-        if action[i]==5 or action[i]==-5 then
-            
+    for i = 2, #action, 0 do
+        if #action<=1 then
+            break
+        else
+            location=move(location,action[i])
+            table.remove(action,i)
+            writeFile(actionFile,action)
+            writeFile(locationFile,location)
         end
     end
+    writeFile(locationFile,location)
+    writeFile(actionFile,{''})
 end
 
 
