@@ -1,4 +1,3 @@
---Main turtle script for startup
 local locationFile='location.txt'
 local directiveFile='directive.txt'
 local actionFile='action.txt'
