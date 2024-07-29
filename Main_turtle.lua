@@ -155,10 +155,10 @@ end
 
 
 local function move(location,destiny)
-    if destiny==5 then
+    if destiny==3 then
         turtle.up()
         location[1][2]=location[1][2]+1
-    elseif destiny==-5 then
+    elseif destiny==-3 then
         turtle.down()
         location[1][2]=location[1][2]-1
     else
@@ -211,6 +211,54 @@ else
     if action[1]~='' then
         if action[1]=='move' then
             goTo()
+        end
+    end
+end
+
+
+local function blockLocation(location)
+    local blockLocation={0,0,0}
+    local destiny=location[2][1]
+    if destiny==3 then
+        blockLocation[2]=location[1][2]+1
+    elseif destiny==-3 then
+        blockLocation[2]=location[1][2]-1
+    else
+        location = turnTo(location,destiny)
+        if destiny==1 or destiny==-1 then
+            blockLocation[1]=location[1][1]+destiny
+        elseif destiny==0 then
+            blockLocation[3]=location[1][3]+1
+        else
+            blockLocation[3]=location[1][3]-1
+        end
+    end
+    return blockLocation
+end
+
+
+local function excavate(location)
+    local scanned={location}
+    for i = 1,4, 1 do
+        location=turn(location,'left')
+        local success, data = turtle.inspect()
+        if success then
+            if type(data.tags)~="nil" then
+                local blockLocation=blockLocation(location)
+                table.insert(blockLocation,data.name)
+            end
+        end
+    end
+    local success, data = turtle.inspectUp()
+    if success then
+        if type(data.tags)~="nil" then
+            table.insert({location[1][1],location[1][2]+1,location[1][3]},data.name)
+        end
+    end
+    local success, data = turtle.inspect()
+    if success then
+        if type(data.tags)~="nil" then
+            table.insert({location[1][1],location[1][2]-1,location[1][3]},data.name)
         end
     end
 end
