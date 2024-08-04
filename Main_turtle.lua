@@ -490,7 +490,24 @@ end
 refuel()
 --goToPath(location,{2,0,2})
 local steam=0
-print("github")
+while turtle.getFuelLevel()>turtle.getFuelLimit()/2 do
+    steam=steam+1
+    location = readFile(locationFile)
+    if findAction('mineSpiral')==false then
+        mineSpiral(location[1],steam)
+    else
+        mineSpiral(findAction('mineSpiral')[1],steam)
+    end
+    if findAction('mineSpiral') then
+        local coords  = findAction('mineSpiral')[3]
+        goToPath(location,coords)
+        local coords  = findAction('mineSpiral')[4]
+        goToPath(location,coords)
+    end
+    if steam>20 then
+        break
+    end
+end
 --]]
 --[[
 local state,datatable = turtle.inspect()
