@@ -2,15 +2,19 @@ local locationFile='location.txt'
 local directiveFile='directive.txt'
 local actionFile='action.txt'
 local stowageFile='stowage.txt'
+local memoryFile = 'memory.txt'
 
 
 local location={{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{100,' - fuelcap'}}
-local directive={{"Inquisitor"},{"start"},{0,0,0,' - hive home'}}
+local directive={{"Inquisitor"},{"start"}}
 local action={}
 local avoidedBlocks={"computercraft:turtle","forge:chests"}
 local blockTags={{"minecraft:logs",{'minecraft:oak_log'}},"minecraft:sand","forge:ores"}
 local blockNames={"minecraft:stone"}
 local stowage = {}
+local memory={"locations",{0,0,0,'home'},"end"}
+
+
 
 local function encodeTable(tablet)
     local data={}
@@ -828,6 +832,7 @@ local function decodeCraftingPattern(encodedPattern,materials)
             table.insert( pattern,materials[tonumber(character)][1] )
         end
     end
+    return pattern
 end
 
 
@@ -1072,12 +1077,12 @@ end
 
 local function craft(crafting,searchStorage)--if searchStorage = true search all storage or int for single
     local searchStorage = searchStorage or false
-
+    local name=''
     
     if type(crafting)=="table" then
-        local name=crafting[1]
+        name=crafting[1]
     else
-        local name=crafting
+        name=crafting
     end
 
     local recipes = craftingRecipe(name)
@@ -1138,13 +1143,16 @@ local function craft(crafting,searchStorage)--if searchStorage = true search all
             local materialLocation = searchMaterial(material)
 
             if materialLocation==false then
-
-                if craftingRecipe(material)~=false then
+                local recipes = craftingRecipe(material)
+                
+                if recipes~=false then
+                    
+                    for index, value in ipairs(recipes) do
+                        local materials = value[1]
+                    end
 
                     if materials[1]~=name and materials[2]~=nil then
                         craft(material)
-
-                    else
                     end
                 end
             else
@@ -1316,7 +1324,15 @@ local function goTo(destiny,mode)
                     break
                 end
                 if manageInventory()==false or refuel()==false then
-                    goTo(readFile(directiveFile)[3][1])
+                    local locations = findData(memoryFile,'locations')
+                    local home={0,0,0}
+                    for index, value in ipairs(locations) do
+                        if value[4]=='home' then
+                            home={value[1],value[2],value[3]}
+                            break
+                        end
+                    end
+                    goTo(home)
                     return false
                 end
             end
@@ -1455,9 +1471,6 @@ end
 local function spiral(mode)
 
     local mode = mode or false
-    if not mode then
-        
-    end
 
 
     local function reachFloor()
@@ -1561,6 +1574,31 @@ end
 
 
 
+local function calculateRequiredResource(item)
+    
+end
+
+
+
+local function mineForResources()
+
+    location = readFile(locationFile)
+    if location[3][1] == nil then
+        findHeight()
+        location = readFile(locationFile)
+    end
+
+    local bedrock = location[3][1]
+    local resources={}
+
+
+    if checkInventory() then
+        
+    end
+end
+
+
+
 if not fileExists(locationFile) or type(readFile(locationFile)[1])=='nil' then
     writeFile(locationFile,location)
 else
@@ -1592,6 +1630,13 @@ else
 end
 
 
+if not fileExists(memoryFile) or type(readFile(memoryFile)[1])=='nil' then
+    writeFile(memoryFile,memory)
+else
+    memory = readFile(memoryFile)
+end
+
+
 
 refuel()
 while true do
@@ -1611,4 +1656,3 @@ local item = turtle.getItemDetail(1)
 local state,datatable = turtle.inspect()
 writeFile('testData.txt',{state,textutils.serialise(datatable)})
 --]]
-
