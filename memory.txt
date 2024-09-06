@@ -1,0 +1,25 @@
+locations -- singular blocks
+0&0&0&home
+1&0&1&#device_name&#building_name/ID
+
+end
+structures -- buildings/areas
+0&0&0&#structure_name/ID
+
+end
+storages
+1&0&1&#device_name&#building_name/ID
+
+end
+turtles
+0&0&0&#name
+
+end
+mined
+0&-60&0&#spiral steps
+
+end
+explored
+0&-1&0&#block name&#block_tags
+
+exit
