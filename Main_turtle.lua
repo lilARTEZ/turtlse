@@ -1075,7 +1075,90 @@ end
 
 
 
-local function craft(crafting,quantity,searchStorage)--if searchStorage = true search all storage or int for single
+local function getMaterialQuantity(searchStorage,material)--if searchStorage = true search all storage or int for single or list of int
+
+    local function searchStorageByNumber(searchStorage,material)
+        local stowage = checkStowage(searchStorage,material[1])
+        local itemCount = 0
+        local stowageItems = {}--{item slots}
+
+        for index, value in ipairs(stowage) do
+            itemCount=itemCount+tonumber(value[3])
+            table.insert( stowageItems, value[1] )
+        end
+
+
+        return {itemCount,stowageItems}--{count,{ID's}}
+
+    end
+
+
+
+    if type(searchStorage)=='number' then
+
+        return searchStorageByNumber(searchStorage,material)--{count,{ID's}}
+
+    elseif searchStorage==true then
+
+        local stowage = checkStowage(nil,material[1])
+        local stowageItemCount=0
+        local stowageItemData={}
+
+        for index, value in ipairs(stowage) do
+
+            local itemCount = 0
+            local itemID = {}
+
+            for index, value in ipairs(value[2]) do
+
+                itemCount=itemCount+value[3]
+                table.insert(itemID,value[1])
+
+            end
+            
+            stowageItemCount=stowageItemCount+itemCount
+            table.insert( stowageItemData,{value[1],itemCount,itemID} )
+
+        end
+
+
+        return {stowageItemCount,stowageItemData}--{total Count,{{StowageID,count,{ID's}}}}
+
+    elseif type(searchStorage)=="table" then
+        
+        local storageTotal=0
+        local totalStorageStatus={}
+
+        for index, value in ipairs(searchStorage) do
+            
+            local storageStatus = searchStorageByNumber(value,material)
+
+            if storageStatus[1]>0 then
+
+                storageTotal=storageTotal+storageStatus[1]
+                table.insert(totalStorageStatus,storageStatus)
+
+            end
+
+        end
+
+        return {storageTotal,totalStorageStatus}--{total Count,{{count,{ID's}}}}
+
+    else
+        
+        return checkInventory(material)--{item count,{id's}}
+    end
+end
+
+
+
+local function getMaterialQuantityByBuilding()
+    
+end
+
+
+
+local function craft(crafting,quantity,searchStorage)
     local searchStorage = searchStorage or false
     local name=''
     
@@ -1086,82 +1169,6 @@ local function craft(crafting,quantity,searchStorage)--if searchStorage = true s
     end
 
     local recipes = craftingRecipe(name)
-
-
-    local function searchMaterial(material)
-        local items = checkInventory(material[1])
-
-
-        local function searchStorageByNumber(searchStorage,material)
-            local stowage = checkStowage(searchStorage,material[1])
-            local itemCount = 0
-            local stowageItems = {}--{item slots}
-
-            for index, value in ipairs(stowage) do
-                itemCount=itemCount+tonumber(value[3])
-                table.insert( stowageItems, value[1] )
-            end
-
-
-            if itemCount>=material[2]*quantity then
-                return true
-            else
-                return itemCount
-            end
-        end
-
-
-
-        if type(searchStorage)=='number' then
-
-            return searchStorageByNumber(searchStorage,material)
-
-        elseif searchStorage==true then
-
-            local stowage = checkStowage(nil,material[1])
-            local stowageItemCount={}
-
-            for index, value in ipairs(stowage) do
-
-                local itemCount = 0
-
-                for index, value in ipairs(value[2]) do
-
-                    itemCount=itemCount+value[3]
-
-                end
-                
-                table.insert( stowageItemCount,{value[1],itemCount} )
-
-            end
-
-
-            if stowageItemCount[1]>=material[2]*quantity then
-                
-            end
-
-            return stowageItemCount--{{stowageId,itemCount}}
-
-        elseif type(searchStorage)=="table" then
-            
-            local storageTotal=0
-            for index, value in ipairs(searchStorage) do
-                local storageStatus searchStorageByNumber(value,material)
-                if storageStatus==true or storageTotal>=material[2]*quantity then
-                    return true
-                else
-                    storageTotal=storageTotal+storageStatus
-                end
-            end
-
-
-        elseif items[1]>=material[2]*quantity then
-            return true
-        else
-            return items[1]
-        end
-    end
-
 
     for index, recipe in ipairs(recipes) do
         local materials = recipe[1]
