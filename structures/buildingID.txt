@@ -1,0 +1,27 @@
+data
+
+0&0&0 --coordinates of middle
+0&0&1 -- coordinates in building grid {0,0}&level of the structure
+
+end
+
+--building content
+
+
+storage
+
+chestID
+0&0&0 -- chest coordinates
+
+--Items
+
+end
+
+
+turtles
+
+0&0&0&turtle_name&turtle_type&turtle_profession?
+
+end
+
+
