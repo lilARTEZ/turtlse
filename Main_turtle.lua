@@ -3,6 +3,7 @@ local directiveFile='directive.txt'
 local actionFile='action.txt'
 local stowageFile='stowage.txt'
 local memoryFile = 'memory.txt'
+local structureFile = '/structures/'
 
 
 local location={{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{100,' - fuelcap'}}
@@ -631,7 +632,7 @@ end
 
 
 
-local function checkInventory(item)--item == str or int  returns {item.name,item.count,item.damage} or {item count,{id's}}
+local function checkInventory(item)--item == str or int  returns {item.name,item.count,item.damage} or {item count,{id's}} if no item return {{ID,item.name,item.count,item.damage}}
     local inventory={}
     local slot = false
     if type(item)=="number" then
@@ -1152,47 +1153,120 @@ end
 
 
 
-local function getMaterialQuantityByBuilding()
-    
+local function getBuildingStorage(buildingID)--{{id,pos,{contents}}} content={item.slot/ID,item.name,item.count,item.damage}
+    local buildingStorageData = findData(structureFile..buildingID..".txt",'storage')
+
+
+    local buildingStorageContent={}
+    local chestID=nil
+    local chestPosition={}
+    local chestContent={}
+
+    for index, line in ipairs(buildingStorageData) do
+        if line[2]==nil and line[1]~='end' then
+            if chestContent[1]~=nil then
+                table.insert(buildingStorageContent,{chestID,chestPosition,chestContent})--{id,pos,{contents}}
+            end
+            chestID=line[1]
+        elseif tonumber(line[1])~=nil then
+            chestPosition=line
+        else
+            table.insert(chestContent,line)
+        end
+    end
+
+    return buildingStorageContent
+
 end
 
 
 
-local function craft(crafting,quantity,searchStorage)
-    local searchStorage = searchStorage or false
-    local name=''
-    
-    if type(crafting)=="table" then
-        name=crafting[1]
-    else
-        name=crafting
-    end
+local function getMaterialQuantityByBuilding(buildingID,material)
 
-    local recipes = craftingRecipe(name)
+    local buildingStorageContent = getBuildingStorage(buildingID)
+    local totalMaterialQuantity
+    local storedMaterials = {totalMaterialQuantity}
 
-    for index, recipe in ipairs(recipes) do
-        local materials = recipe[1]
+    for index, chestContent in ipairs(buildingStorageContent) do
 
-        for index, material in ipairs(materials) do
-            local materialLocation = searchMaterial(material)
+        local chestMaterialQuantity = 0
+        local materialID={}
 
-            if materialLocation==false then
-                local recipes = craftingRecipe(material)
-                
-                if recipes~=false then
-                    
-                    for index, value in ipairs(recipes) do
-                        local materials = value[1]
-                    end
-
-                    if materials[1]~=name and materials[2]~=nil then
-                        craft(material)
-                    end
-                end
-            else
-
+        for index, item in ipairs(chestContent[3]) do
+            if item[2]==material then
+                chestMaterialQuantity=chestMaterialQuantity+item[3]
+                table.insert(materialID,item[1])
             end
         end
+
+        if chestMaterialQuantity>0 then
+            totalMaterialQuantity=totalMaterialQuantity+chestMaterialQuantity
+            table.insert(storedMaterials,{chestContent[1],chestContent[2],chestMaterialQuantity,{}})
+        end
+
+    end
+
+    return {totalMaterialQuantity,storedMaterials}
+
+end
+
+
+
+local function craft(craftings,searchStorage)--takes {{craftingName,quantity}}
+    local searchStorage = searchStorage or false
+
+
+    local function getStorageType(searchStorage)
+        
+        if string.find(searchStorage,'storage')~=nil then
+        
+        elseif searchStorage then
+    
+        end
+    end
+
+
+    if type(searchStorage)=="table" then
+        for index, storageID in ipairs(searchStorage) do
+            
+        end
+    else
+    end
+
+
+    
+    for index, crafting in ipairs(craftings) do
+
+        local name=crafting[1]
+        local quantity=crafting[2]
+        local recipes = craftingRecipe(name)
+
+
+        for index, recipe in ipairs(recipes) do
+            local materials = recipe[1]
+    
+            for index, material in ipairs(materials) do
+                local materialLocation = searchMaterial(material)
+    
+                if materialLocation==false then
+                    local recipes = craftingRecipe(material)
+                    
+                    if recipes~=false then
+                        
+                        for index, value in ipairs(recipes) do
+                            local materials = value[1]
+                        end
+    
+                        if materials[1]~=name and materials[2]~=nil then
+                            craft(material)
+                        end
+                    end
+                else
+    
+                end
+            end
+        end
+
     end
 end
 
