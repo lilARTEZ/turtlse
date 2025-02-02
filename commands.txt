@@ -1,3 +1,6 @@
-5
-say$1
-Hell0!!
+6
+spiral$1
+true
+goTo$1
+0$0$0
+
