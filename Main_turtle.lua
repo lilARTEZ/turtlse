@@ -221,6 +221,9 @@ end
 local function turn(direction,location)--turns in provided str direction ('left','right','back'),location optional 
 
     location = location or readFile(locationFile)
+    if location[2]==nil then
+        location=readFile(locationFile)
+    end
     local facing=location[2][1]
 
 
@@ -265,6 +268,10 @@ end
 
 
 local function turnTo(location,direction)
+    if type(direction)~="number" then
+        error('turn to called with nill direction')
+    end
+    location=readFile(locationFile)
     if math.sqrt(direction^2)==2 then
         direction=2
     end
@@ -273,9 +280,9 @@ local function turnTo(location,direction)
     end
     while location[2][1]~=direction do
         if (location[2][1]==2 and direction==-1) or (direction>location[2][1]) then
-            location = turn(location,'right')
+            location = turn('right',location)
         else
-            location = turn(location,'left')
+            location = turn('left',location)
         end
     end
     return location
@@ -2000,7 +2007,6 @@ local function getNewCommand()
     local commandID = commands[1][1] or 1
 
     directive = readFile(directiveFile)
-
     if directive[4][1]==nil then
         directive[4]={0,' - command ID'}
         writeFile(directiveFile,directive)
@@ -2022,22 +2028,29 @@ local function getNewCommand()
             commandID = commands[1]
         end
     end
+
     if type(commands[2][2])~="nil" then
         local command = commands[2][1]
         local argumentCount = commands[2][2]
-        local arguments={}
-        for i = 1, argumentCount, 0 do
+        local arguments={command}
+        for i = 1, argumentCount, 1 do
+            print(commands[2][1],i)
+            print(commands[3][1],commands[3][2],commands[3][3])
             if type(commands[3][2])=="nil" then
                 table.insert( arguments,commands[3][1])
             else
+                print(commands)
                 table.insert( arguments,commands[3])
             end
             table.remove( commands,3 )
         end
         table.remove( commands, 2 )
         writeFile(commandsFile,commands)
-        return command,arguments
+        print('ll: ',arguments[1][1])
+        return arguments
     end
+    table.remove( commands, 2 )
+    writeFile(commandsFile,commands)
 end
 
 
@@ -2093,7 +2106,9 @@ local function say(message)
 end
 
 
-
+local function reboot()
+    os.reboot()
+end
 
 
 
@@ -2147,6 +2162,7 @@ customEnv.checkStowage = checkStowage
 customEnv.checkInventory = checkInventory
 customEnv.manageInventory = manageInventory
 customEnv.decodeCraftingPattern = decodeCraftingPattern
+customEnv.reboot = reboot
 
 --3  -command number
 
@@ -2158,20 +2174,23 @@ customEnv.decodeCraftingPattern = decodeCraftingPattern
 --3$1$6
 
 
+--reboot&0
 
+writeFile(commandsFile,{1})
 term.clear()
 print('AWAITING COMMAND ...')
 local iter=0
 while true do
 
-    local command,arguments = RunProtected(getNewCommand)
-    if command~=false then
-        if type(command)~="nil" then
-            RunMultipleProtected({{command,arguments}},customEnv)
+    local commandData = RunProtected(getNewCommand)
+    if commandData~=false then
+        if type(commandData[1])~="nil" then
+            print(commandData[1])
+            RunMultipleProtected({commandData},customEnv)
             print('AWAITING COMMAND ...')
         end
     end
-
+    break
     os.sleep(1)
 end
 
