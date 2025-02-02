@@ -1,6 +1,3 @@
 6
 spiral$1
 true
-goTo$1
-0$0$0
-
