@@ -1823,11 +1823,13 @@ local function mineSpiral(center,step,distance)
 end
 
 
+
 --levels from bedrock
 --diamond,redstone 5 
 --iron 80
 --copper,coal? 112
 --coal 160
+
 
 
 local function findHeight()
@@ -1849,7 +1851,6 @@ local function findHeight()
         writeFile(locationFile,location)
     end
 end
-
 
 
 
@@ -1951,6 +1952,7 @@ local function spiral(mode)
             end
         end
         if iteration>20 then
+            goTo({0,0,0},'excavate')
             break
         end
         iteration=iteration+1
@@ -2034,19 +2036,15 @@ local function getNewCommand()
         local argumentCount = commands[2][2]
         local arguments={command}
         for i = 1, argumentCount, 1 do
-            print(commands[2][1],i)
-            print(commands[3][1],commands[3][2],commands[3][3])
             if type(commands[3][2])=="nil" then
                 table.insert( arguments,commands[3][1])
             else
-                print(commands)
                 table.insert( arguments,commands[3])
             end
             table.remove( commands,3 )
         end
         table.remove( commands, 2 )
         writeFile(commandsFile,commands)
-        print('ll: ',arguments[1][1])
         return arguments
     end
     table.remove( commands, 2 )
@@ -2185,12 +2183,10 @@ while true do
     local commandData = RunProtected(getNewCommand)
     if commandData~=false then
         if type(commandData[1])~="nil" then
-            print(commandData[1])
             RunMultipleProtected({commandData},customEnv)
             print('AWAITING COMMAND ...')
         end
     end
-    break
     os.sleep(1)
 end
 
