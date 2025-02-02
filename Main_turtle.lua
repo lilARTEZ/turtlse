@@ -4,16 +4,59 @@ local actionFile='action.txt'
 local stowageFile='stowage.txt'
 local memoryFile = 'memory.txt'
 local structureFile = '/structures/'
-
+local commandsFile = 'commands.txt'
+local mainGitFile = 'https://github.com/lilARTEZ/turtlse/raw/main/Main_turtle.lua'
+local commandsGitFile = 'https://raw.githubusercontent.com/lilARTEZ/turtlse/refs/heads/main/commands.txt'
 
 local location={{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{100,' - fuelcap'}}
-local directive={{"Inquisitor"},{"start"}}
+local directive={{"Inquisitor"},{"start"},{},{0}}
 local action={}
 local avoidedBlocks={"computercraft:turtle","forge:chests"}
 local blockTags={{"minecraft:logs",{'minecraft:oak_log'}},"minecraft:sand","forge:ores"}
 local blockNames={"minecraft:stone"}
 local stowage = {}
 local memory={"locations",{0,0,0,'home'},"end"}
+local commands={}
+
+
+
+
+-- Function to run tasks safely
+local function RunProtected(func, ...)
+    local success, result = pcall(func, ...)
+    if not success then
+        print("Error running function:", result)
+        return nil
+    end
+    return result
+end
+
+-- Function to run multiple tasks safely
+local function RunMultipleProtected(taskList, env)
+    local results = {}
+    env = env or _G  -- Default to _G if no env provided
+
+    for i, task in ipairs(taskList) do
+        local funcName = task[1]  -- Function name as a string
+        local args = {table.unpack(task, 2)}  -- Extract arguments
+
+
+        local func = env[funcName]  -- Look for the function in the environment
+
+        if type(func) == "function" then
+            results[i] = RunProtected(func, table.unpack(args))
+        elseif type(func)~="nil" then
+            print("Error: Task " .. i .. " is not a valid function!")  -- Error message
+            results[i] = nil
+        end
+    end
+
+    return results
+end
+
+
+
+
 
 
 
@@ -115,7 +158,7 @@ end
 
 local function getFuelCap(refuel)
     local refuel = refuel or false
-    local location = readFile(directiveFile)
+    local location = readFile(locationFile)
     local fuelCap = location[4][1] or 100
 
     if refuel~= false then
@@ -126,6 +169,7 @@ local function getFuelCap(refuel)
             fuelItem=fuelItem-1
             local usedFuel = (turtle.getFuelLevel()-fuelLevel)/2
             local fuelValue = (((turtle.getFuelLevel()-fuelLevel)*5)/100)*fuelItem
+            print(turtle.getFuelLevel()+fuelValue>1.2*fuelCap)
             if turtle.getFuelLevel()+fuelValue>1.2*fuelCap then
                 turtle.refuel(math.floor(((fuelCap*1.2)-turtle.getFuelLevel())/(fuelValue/fuelItem)))
                 usedFuel=usedFuel+(math.floor(((fuelCap*1.2)-turtle.getFuelLevel())/(fuelValue/fuelItem)))/2
@@ -139,6 +183,8 @@ local function getFuelCap(refuel)
                 writeFile(locationFile,location)
                 return false
             end
+        else
+            return true
         end
     else
         return fuelCap
@@ -152,27 +198,29 @@ local function refuel(start)
     while true do
         for i = 1, 16, 1 do
             term.clear()
-            print('Refueling: '..turtle.getFuelLevel() ' / '..getFuelCap())
+            print('Refueling: '..turtle.getFuelLevel()..' / '..getFuelCap())
             turtle.select(i)
             if getFuelCap(true) then
                 turtle.select(1)
                 term.clear()
-                print('Done refueling, current fuel level: '..turtle.getFuelLevel() ' / '..getFuelCap())
+                print('Done refueling, current fuel level: '..turtle.getFuelLevel()..' / '..getFuelCap())
                 return true
             end
         end
         if start~=true then
             return false
         end
-        print('Failed to refuel, please insert more fuel: '..turtle.getFuelLevel() ' / '..getFuelCap())
-        os.sleep(2)
+        term.clear()
+        print('Failed to refuel, please insert more fuel: '..turtle.getFuelLevel()..' / '..getFuelCap())
+        os.sleep(2) 
     end
 end
 
 
 
-local function turn(location,direction)
+local function turn(direction,location)--turns in provided str direction ('left','right','back'),location optional 
 
+    location = location or readFile(locationFile)
     local facing=location[2][1]
 
 
@@ -185,9 +233,18 @@ local function turn(location,direction)
     elseif direction=='right' then
         facing=facing+1
         if facing>2 then
-            facing=-1
+            facing=facing-3
         end
         turtle.turnRight()
+    elseif direction=='back' then
+        facing=facing+2
+        if facing>2 then
+            facing=facing-3
+        end
+        turtle.turnRight()
+        turtle.turnRight()
+    else
+        return false
     end
 
 
@@ -553,6 +610,35 @@ end
 
 
 
+local function findInTag(item,tagName)
+    for index, tag in ipairs(blockTags) do
+
+        if tagName==tag[1] then
+            local taggedBlocks=tag[2]
+            for index, name in ipairs(taggedBlocks) do
+                if item==name then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+
+
+local function isBlockTag(item)
+    for index, tag in ipairs(blockTags) do
+
+        if item==tag[1] then
+            return true
+        end
+    end
+    return false
+end
+
+
+
 local function checkStowage(stowageID,item)--{{slot,item.name,item.count,item.damage}}==stowageData if no stowageID {stowageID,stowageData}
     local stowageID = stowageID or nil
     local item = item or nil
@@ -657,16 +743,27 @@ local function checkInventory(item)--item == str or int  returns {item.name,item
         local items={0,{}}
 
 
+
         for index, value in ipairs(inventory) do
             if type(item)=="table" then
                 for index, name in ipairs(item) do
-                    if value[2]==name then
+                    if  isBlockTag(name) then
+                        if findInTag(value[2],name) then
+                            items[1]=items[1]+value[3]
+                            table.insert( items[2],value[1])
+                        end
+                    elseif value[2]==name then
                         items[1]=items[1]+value[3]
                         table.insert( items[2],value[1])
                     end
                 end
             else
-                if value[2]==item then
+                if  isBlockTag(item)==true then
+                    if findInTag(value[2],item) then
+                        items[1]=items[1]+value[3]
+                        table.insert( items[2],value[1])
+                    end
+                elseif value[2]==item then
                     items[1]=items[1]+value[3]
                     table.insert( items[2],value[1])
                 end
@@ -827,11 +924,15 @@ local function decodeCraftingPattern(encodedPattern,materials)
     local pattern={}
     for i = 1, #encodedPattern do
         local character = encodedPattern:sub(i,i)
-        if character==0 then
+        if tonumber(character)==0 then
             table.insert( pattern,nil )
         else
             table.insert( pattern,materials[tonumber(character)][1] )
         end
+    end
+
+    for i = 1, 9-#encodedPattern do
+        table.insert( pattern,nil )
     end
     return pattern
 end
@@ -1076,7 +1177,9 @@ end
 
 
 
-local function getMaterialQuantity(searchStorage,material)--if searchStorage = true search all storage or int for single or list of int
+local function getMaterialQuantity(material,searchStorage)--if searchStorage = true search all storage or int for single or list of int
+
+    searchStorage=searchStorage or false
 
     local function searchStorageByNumber(searchStorage,material)
         local stowage = checkStowage(searchStorage,material[1])
@@ -1146,7 +1249,6 @@ local function getMaterialQuantity(searchStorage,material)--if searchStorage = t
         return {storageTotal,totalStorageStatus}--{total Count,{{count,{ID's}}}}
 
     else
-        
         return checkInventory(material)--{item count,{id's}}
     end
 end
@@ -1212,6 +1314,141 @@ end
 
 
 
+local function moveItemInInventory(destiny,item,quantity,forbiddenSlotList)
+    quantity=quantity or 1
+    forbiddenSlotList=forbiddenSlotList or {}
+
+    if type(destiny)=="number" then
+        local itemData = checkInventory(item)
+        local itemQuantity = itemData[1]
+        local itemLocations = itemData[2]
+
+        if itemQuantity<quantity then
+            print('couldn\'t find enough '..item..' lacking '..quantity-itemQuantity)
+            return false
+        end
+
+        for index, location in ipairs(itemLocations) do
+            for index2, forbiddenSlot in ipairs(forbiddenSlotList) do
+                if location==forbiddenSlot then
+                    table.remove( itemLocations,index )
+                    table.remove( forbiddenSlotList,index2 )
+                end
+            end
+        end
+
+        for index, value in ipairs(itemLocations) do
+            turtle.select(value)
+            if turtle.getItemCount(value)>quantity then
+                turtle.transferTo(destiny,quantity)
+                quantity=0
+                break
+            else
+                quantity=quantity-turtle.getItemCount(value)
+                turtle.transferTo(destiny,quantity)
+            end
+        end
+
+        if quantity>0 then
+            return false
+        else
+            return true
+        end
+    end
+end
+
+
+
+local function emptyInventoryTo(storage_name)--storage_name=('front','back'...)
+
+    location = location or readFile(locationFile)
+    local facing=location[2][1]
+
+    turn(storage_name)
+
+    for i = 1, 16, 1 do
+
+        turtle.select(i)
+
+        if storage_name=='top' then
+            turtle.dropUp(64)
+        elseif storage_name=='bottom' then
+            turtle.dropDown(64)
+        else
+            turtle.drop(64)
+        end
+    end
+end
+
+
+
+local function suckFromChest(storage_name)--storage_name=('front','back'...)
+
+    turn(storage_name)
+
+    for i = 1, 16, 1 do
+
+        turtle.select(i)
+
+        if storage_name=='top' then
+            turtle.dropUp(64)
+        elseif storage_name=='bottom' then
+            turtle.dropDown(64)
+        else
+            turtle.drop(64)
+        end
+    end
+end
+
+
+local function getItemFromNeighbouringChests(item,quantity,destiny,processingChest,providerChests)
+
+    providerChests=providerChests or {'front','right','left','back','top','bottom'}
+    for index, value in ipairs(providerChests) do
+        if value==processingChest then
+            table.remove(providerChests,index)
+        end    
+    end
+    
+
+    for index, providerChest in ipairs(providerChests) do
+        
+        if peripheral.isPresent(providerChest) then
+
+            local peripheralName,peripheralType = peripheral.getType(providerChest)
+
+            if peripheralType=='inventory' then
+
+                local list= peripheral.call(providerChest,'list')
+
+                for providerChestItemSlot = 1, peripheral.call(providerChest,'size'), 1 do
+
+                    if type(list[providerChestItemSlot])~="nil" then
+                        if list[providerChestItemSlot].name==item then
+
+                            if list[providerChestItemSlot].count>quantity then
+                                print(providerChest)
+                                peripheral.call(providerChest,'pushItems',processingChest,providerChestItemSlot,quantity,1)
+                                turtle.suckUp(quantity)
+                            else
+                                peripheral.call(providerChest,'pushItems',processingChest,providerChestItemSlot,quantity,1)
+                                quantity=quantity-list[providerChestItemSlot].count
+                                turtle.suckUp(quantity)
+                            end
+                        end
+                    end
+                    if quantity<=0 then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+
+
 local function craft(craftings,searchStorage)--takes {{craftingName,quantity}}
     local searchStorage = searchStorage or false
 
@@ -1231,38 +1468,71 @@ local function craft(craftings,searchStorage)--takes {{craftingName,quantity}}
             
         end
     else
+
     end
 
 
     
     for index, crafting in ipairs(craftings) do
 
+        print('.. a '..crafting[1])
         local name=crafting[1]
         local quantity=crafting[2]
+
+        if name==nil then
+            print('Failed to find crafting recipe for: nil name')
+            return false
+        end
+
         local recipes = craftingRecipe(name)
 
+        if recipes==false then
+            print('Failed to find crafting recipe for: '..name)
+            return false
+        end
 
         for index, recipe in ipairs(recipes) do
             local materials = recipe[1]
     
             for index, material in ipairs(materials) do
-                local materialLocation = searchMaterial(material)
+                local materialData = getMaterialQuantity(material[1],searchStorage)
+                local materialQuantity = materialData[1]
+                local materialIds = materialData[2]
+                print('material '..materialQuantity)
     
-                if materialLocation==false then
-                    local recipes = craftingRecipe(material)
-                    
+                if materialQuantity<material[2] then
+                    local recipes = craftingRecipe(material[1])
+
                     if recipes~=false then
-                        
+
                         for index, value in ipairs(recipes) do
                             local materials = value[1]
+                            if materials[1][1]~=name and materials[1][2]~=nil then
+                                if craft({material})==false then
+                                    return false
+                                end
+                            end
                         end
-    
-                        if materials[1]~=name and materials[2]~=nil then
-                            craft(material)
-                        end
+                    else
+                        print('lacking at least '..material[2]-materialQuantity..' '..material[1]..' to craft '..name)
+                        return false
                     end
                 else
-    
+                    for index, item in ipairs(recipe[2]) do
+                        local slot=(index+math.floor(index/4))
+
+                        if type(item)~= "nil" then
+                            moveItem(slot,item,quantity)
+                        end
+                    end
+                    for index, item in ipairs(recipe[2]) do
+                        local slot=(index+math.floor(index/4))
+
+                        if type(item)== "nil" then
+                            moveItem("nil",slot,quantity)
+                        end
+                    end
+                    turtle.craft(quantity)
                 end
             end
         end
@@ -1707,6 +1977,72 @@ end
 
 
 
+local function updateFileFromGit(GitFile,fileLocation)
+    local request = http.get(GitFile)
+
+
+    local function writeFile(path,data)
+        local file = io.open(path, 'w')
+        file:write(data..'\n')
+        io.close(file)
+    end
+
+    writeFile(fileLocation,request.readAll())
+
+    request.close()
+end
+
+
+
+local function getNewCommand()
+
+    commands=readFile(commandsFile)
+    local commandID = commands[1][1] or 1
+
+    directive = readFile(directiveFile)
+
+    if directive[4][1]==nil then
+        directive[4]={0,' - command ID'}
+        writeFile(directiveFile,directive)
+    end
+
+    if type(commands[2])=="nil" then
+
+        directive[4]={commandID,' - command ID'}
+        writeFile(directiveFile,directive)
+
+        updateFileFromGit(commandsGitFile,commandsFile)
+        commands=readFile(commandsFile)
+        commandID = commands[1][1] or 1
+        
+        if directive[4][1] >= commandID then
+            writeFile(commandsFile,{commandID,''})
+            return false
+        else
+            commandID = commands[1]
+        end
+    end
+    if type(commands[2][2])~="nil" then
+        local command = commands[2][1]
+        local argumentCount = commands[2][2]
+        local arguments={}
+        for i = 1, argumentCount, 0 do
+            if type(commands[3][2])=="nil" then
+                table.insert( arguments,commands[3][1])
+            else
+                table.insert( arguments,commands[3])
+            end
+            table.remove( commands,3 )
+        end
+        table.remove( commands, 2 )
+        writeFile(commandsFile,commands)
+        return command,arguments
+    end
+end
+
+
+
+
 if not fileExists(locationFile) or type(readFile(locationFile)[1])=='nil' then
     writeFile(locationFile,location)
 else
@@ -1745,8 +2081,115 @@ else
 end
 
 
+if not fileExists(commandsFile) or type(readFile(commandsFile)[1])=='nil' then
+    writeFile(commandsFile,commands)
+else
+    commands = readFile(commandsFile)
+end
 
-refuel()
+
+local function say(message)
+    print(message)
+end
+
+
+
+
+
+
+-- Create a custom environment and add Say function
+local customEnv = {}
+customEnv.say = say  -- Manually add Say to the environment
+customEnv.updateFileFromGit = updateFileFromGit
+customEnv.mineForResources = mineForResources
+customEnv.mineForResources = mineForResources
+customEnv.craftingRecipe = craftingRecipe
+customEnv.getMaterialQuantity = getMaterialQuantity
+customEnv.getBuildingStorage = getBuildingStorage
+customEnv.getMaterialQuantityByBuilding = getMaterialQuantityByBuilding
+customEnv.moveItemInInventory = moveItemInInventory
+customEnv.emptyInventoryTo = emptyInventoryTo
+customEnv.suckFromChest = suckFromChest
+customEnv.getItemFromNeighbouringChests = getItemFromNeighbouringChests
+customEnv.craft = craft
+customEnv.avoidPath = avoidPath
+customEnv.goToPath = goToPath
+customEnv.excavate = excavate
+customEnv.goTo = goTo
+customEnv.mineSpiral = mineSpiral
+customEnv.findHeight = findHeight
+customEnv.spiral = spiral
+customEnv.calculateRequiredResource = calculateRequiredResource
+customEnv.encodeTable = encodeTable
+customEnv.decodeTable = decodeTable
+customEnv.fileExists = fileExists
+customEnv.deleteFile = deleteFile
+customEnv.writeFile = writeFile
+customEnv.readFile = readFile
+customEnv.editFile = editFile
+customEnv.appendFile = appendFile
+customEnv.getFuelCap = getFuelCap
+customEnv.refuel = refuel
+customEnv.turn = turn
+customEnv.turnTo = turnTo
+customEnv.blockLocation = blockLocation
+customEnv.scan = scan
+customEnv.addToLocation = addToLocation
+customEnv.turnFromLocation = turnFromLocation
+customEnv.getDirection = getDirection
+customEnv.move = move
+customEnv.findData = findData
+customEnv.editData = editData
+customEnv.newData = newData
+customEnv.findInTag = findInTag
+customEnv.isBlockTag = isBlockTag
+customEnv.checkStowage = checkStowage
+customEnv.checkInventory = checkInventory
+customEnv.manageInventory = manageInventory
+customEnv.decodeCraftingPattern = decodeCraftingPattern
+
+--3  -command number
+
+--say$1    -command name, number of arguments
+--FINALLY FREEE!!!! -arguments
+-- ...
+
+--goTo$1
+--3$1$6
+
+
+
+term.clear()
+print('AWAITING COMMAND ...')
+local iter=0
+while true do
+
+    local command,arguments = RunProtected(getNewCommand)
+    if command~=false then
+        if type(command)~="nil" then
+            RunMultipleProtected({{command,arguments}},customEnv)
+            print('AWAITING COMMAND ...')
+        end
+    end
+
+    os.sleep(1)
+end
+
+--[[
+while true do
+    if peripheral.isPresent('front') then
+        local list= peripheral.call('front','list')
+        for i = 1, peripheral.call('front','size'), 1 do
+            if type(list[i])~="nil" then
+                appendFile('testData.txt',{{i,list[i].count,list[i].name}})
+            end
+        end
+        break
+    end
+    os.sleep(1)
+end
+--]]
+--[[
 while true do
     local item = turtle.getItemDetail(1)
     if item~=nil then
@@ -1754,6 +2197,7 @@ while true do
     end
     os.sleep(1)
 end
+--]]
 --[[
 
 local item = turtle.getItemDetail(1)
