@@ -9,7 +9,7 @@ local mainGitFile = 'https://github.com/lilARTEZ/turtlse/raw/main/Main_turtle.lu
 local commandsGitFile = 'https://raw.githubusercontent.com/lilARTEZ/turtlse/refs/heads/main/commands.txt'
 
 local location={{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{100,' - fuelcap'}}
-local directive={{"Inquisitor"},{"start"},{},{0}}
+local directive={{"Inquisitor"},{"start"},{0,0,0,' - hive home'},{0}}
 local action={}
 local avoidedBlocks={"computercraft:turtle","forge:chests"}
 local blockTags={{"minecraft:logs",{'minecraft:oak_log'}},"minecraft:sand","forge:ores"}
@@ -269,7 +269,7 @@ end
 
 local function turnTo(location,direction)
     if type(direction)~="number" then
-        error('turn to called with nill direction')
+        error('turnTo() called with nill direction')
     end
     location=readFile(locationFile)
     if math.sqrt(direction^2)==2 then
@@ -451,7 +451,7 @@ local function getDirection(destiny)
     local location = readFile(locationFile)
     local distance = {0,0,0}
     local path={}
-
+    
     for index, value in ipairs(location[1]) do
         distance[index]=destiny[index]-value
     end
@@ -1602,10 +1602,10 @@ end
 
 
 local function goToPath(destiny)--{1x,1y,1z},{2x,2y,2z}
+print(destiny[1],destiny[2],destiny[3])
     local distance = {0,0,0}
 
     local path={'move'}
-
     for index, value in ipairs(getDirection(destiny)) do
         table.insert(path,value)
     end
@@ -1616,6 +1616,7 @@ local function goToPath(destiny)--{1x,1y,1z},{2x,2y,2z}
         newData(actionFile,path)
         return true
     end
+    return false
 end
 
 
@@ -1690,7 +1691,7 @@ local function goTo(destiny,mode)
     local action = {}
 
     if destiny~=false then
-        goToPath(destiny)
+        print(goToPath(destiny))
     end
 
     for index, value in ipairs(findData(actionFile,'move')) do
@@ -1727,7 +1728,7 @@ local function goTo(destiny,mode)
         if action[2][2]==3 then
             if scan('up','avoid')[1]~=nil then
                 if action[2][1]>1 then
-                    avoidPath(location,action[2][2],scan('up','avoid')[1][3])
+                    avoidPath(location,action[2][2],scan('up','avoid')[1][3]) 
                     goTo(false,mode)
                     action[2][1]=action[2][1]-2
                 else
@@ -1855,7 +1856,6 @@ end
 
 
 local function spiral(mode)
-
     local mode = mode or false
 
 
@@ -1932,12 +1932,13 @@ local function spiral(mode)
 
 
 
-            while action[4]~="end" do
+            while action[5]~="end" do
 
                 location = readFile(locationFile)
 
                 if mode then
-                    goTo({action[4][1],location[1][2],action[4][3]},'excavate_wood')
+                    print('hell'..action[5][3])
+                    goTo({action[5][1],location[1][2],action[5][3]},'excavate_wood')
                     reachFloor()
                 else
                     goTo(action[4],'excavate')
@@ -1952,6 +1953,7 @@ local function spiral(mode)
             end
         end
         if iteration>20 then
+            print('gone')
             goTo({0,0,0},'excavate')
             break
         end
@@ -2110,6 +2112,12 @@ end
 
 
 
+local function updateProgram()
+    
+end
+
+
+
 -- Create a custom environment and add Say function
 local customEnv = {}
 customEnv.say = say  -- Manually add Say to the environment
@@ -2174,19 +2182,28 @@ customEnv.reboot = reboot
 
 --reboot&0
 
-writeFile(commandsFile,{1})
-term.clear()
-print('AWAITING COMMAND ...')
-local iter=0
-while true do
 
-    local commandData = RunProtected(getNewCommand)
-    if commandData~=false then
+local function runCommand(commandData)
+    if commandData==false or type(commandData)=="nil" then
+        return false
+    else
         if type(commandData[1])~="nil" then
             RunMultipleProtected({commandData},customEnv)
             print('AWAITING COMMAND ...')
         end
     end
+end
+
+
+RunProtected(writeFile,commandsFile,{1})
+RunProtected(writeFile,directiveFile,directive)
+RunProtected(writeFile,actionFile,{})
+term.clear()
+print('AWAITING COMMAND ...')
+while true do
+
+    local commandData = RunProtected(getNewCommand)
+    RunProtected(runCommand,commandData)
     os.sleep(1)
 end
 
