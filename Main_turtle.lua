@@ -86,14 +86,40 @@ local function decodeTable(fileContent)
     local tableLines={}
     for index, value in ipairs(fileContent) do
         local line={}
+        local strings = {}
         for str in string.gmatch(value,"([^%$]+)") do
+            table.insert( strings, str)
+        end
+
+
+        local function getValueOf(str)
             if tonumber(str)==nil then
-                table.insert( line, str)
+                if tostring(str)~=nil then
+                   if str=='false' then
+                        return false
+                   elseif str=='true' then
+                        return true
+                   else
+                        return tostring(str)
+                   end
+                else
+                    return str
+                end
             else
-                table.insert( line,tonumber(str))
+                return tonumber(str)
             end
         end
-        table.insert(tableLines,line)
+
+
+
+        if #strings>1 then
+            for index, str in ipairs(strings) do
+                table.insert( line, getValueOf(str))
+            end
+            table.insert(tableLines,line)
+        else
+            table.insert(tableLines,getValueOf(strings[1]))
+        end
     end
     return tableLines
 end
@@ -161,17 +187,26 @@ local function getFuelCap(refuel)
     local location = readFile(locationFile)
     local fuelCap = location[4][1] or 100
 
+
     if refuel~= false then
+
         if turtle.refuel(0) and turtle.getFuelLevel()<=fuelCap then
+
             local fuelItem = turtle.getItemCount()
             local fuelLevel = turtle.getFuelLevel()
             turtle.refuel(1)
+
             fuelItem=fuelItem-1
+            
             local usedFuel = (turtle.getFuelLevel()-fuelLevel)/2
             local fuelValue = (((turtle.getFuelLevel()-fuelLevel)*5)/100)*fuelItem
-            print(turtle.getFuelLevel()+fuelValue>1.2*fuelCap)
+
+
+
             if turtle.getFuelLevel()+fuelValue>1.2*fuelCap then
+
                 turtle.refuel(math.floor(((fuelCap*1.2)-turtle.getFuelLevel())/(fuelValue/fuelItem)))
+
                 usedFuel=usedFuel+(math.floor(((fuelCap*1.2)-turtle.getFuelLevel())/(fuelValue/fuelItem)))/2
                 location[4][1]=fuelCap+usedFuel
                 writeFile(locationFile,location)
@@ -183,8 +218,10 @@ local function getFuelCap(refuel)
                 writeFile(locationFile,location)
                 return false
             end
-        else
+        elseif turtle.getFuelLevel()>=fuelCap then
             return true
+        else
+            return false
         end
     else
         return fuelCap
@@ -542,11 +579,11 @@ local function findData(fileName,name)
     local found=false
     local action={}
     for index, value in ipairs(actionData) do
-        if value[1]==name then
+        if value==name then
             found=true
             table.insert(action,value)
         elseif found==true then
-            if value[1]=='end' then
+            if value=='end' then
                 table.insert(action,value)
                 break
             else
@@ -568,11 +605,13 @@ local function editData(fileName,name,actionList)
     local before = {}
     local after = {}
 
-
+    if type(actionData)~="table" then
+        actionData={actionData}
+    end
     for index, value in ipairs(actionData) do
-        if value[1]==name and found==0 then
+        if value==name and found==0 then
             found=1
-        elseif value[1]=='end' and found==1 then
+        elseif value=='end' and found==1 then
             found=2
         else
             if found==0 then
@@ -1434,7 +1473,6 @@ local function getItemFromNeighbouringChests(item,quantity,destiny,processingChe
                         if list[providerChestItemSlot].name==item then
 
                             if list[providerChestItemSlot].count>quantity then
-                                print(providerChest)
                                 peripheral.call(providerChest,'pushItems',processingChest,providerChestItemSlot,quantity,1)
                                 turtle.suckUp(quantity)
                             else
@@ -1602,7 +1640,6 @@ end
 
 
 local function goToPath(destiny)--{1x,1y,1z},{2x,2y,2z}
-print(destiny[1],destiny[2],destiny[3])
     local distance = {0,0,0}
 
     local path={'move'}
@@ -1685,18 +1722,26 @@ end
 
 
 local function goTo(destiny,mode)
+
     local destiny=destiny or false
     local mode=mode or 'none'
     location = readFile(locationFile)
     local action = {}
 
     if destiny~=false then
-        print(goToPath(destiny))
+        if goToPath(destiny)==false then
+            return false
+        end
     end
 
-    for index, value in ipairs(findData(actionFile,'move')) do
-        table.insert(action,value)
+    if findData(actionFile,'move')~=false then
+        for index, value in ipairs(findData(actionFile,'move')) do
+            table.insert(action,value)
+        end
+    else
+        return false
     end
+
 
     while action[2]~="end" do
         location = readFile(locationFile)
@@ -1705,10 +1750,10 @@ local function goTo(destiny,mode)
         if mode=='excavate' then
             while true do
                 local excavated=excavate(location)
-                goTo(excavated[2])
                 if excavated[1]==false then
                     break
                 end
+                goTo(excavated[2])
                 if manageInventory()==false or refuel()==false then
                     local locations = findData(memoryFile,'locations')
                     local home={0,0,0}
@@ -1791,9 +1836,7 @@ end
 
 local function mineSpiral(center,step,distance)
     local distance=distance or 4
-    local action={'mineSpiral'}
-    table.insert(action,center)
-    table.insert(action,step)
+    local action={}--{name,(x,y,z)center,step,(x,y,z)move x,(x,y,z)move z,end}
     local x=center[1]
     local z=center[3]
     local rotation = 1
@@ -1807,20 +1850,22 @@ local function mineSpiral(center,step,distance)
     end
 
     x=center[1]+(distance*(math.floor(step/2)*rotation))
-
     table.insert( action,{x,center[2],z})
 
     z=center[3]+(distance*(math.floor(step/2)*rotation))
 
-
     table.insert( action,{x,center[2],z})
-    table.insert(action,'end')
+    --table.insert(action,'end')
 
+
+    return action--{{move1},{move2}}
+    --[[
     if findData(actionFile,'mineSpiral')==false then
         newData(actionFile,action)
     else
         editData(actionFile,'mineSpiral',action)
     end
+    --]]
 end
 
 
@@ -1839,7 +1884,7 @@ local function findHeight()
         local success,inspect=turtle.inspectDown()
         while inspect.name~='minecraft:bedrock' do
             location = readFile(locationFile)
-            local path={'mine',{1,-3},'end'}
+            local path={'move',{1,-3},'end'}
             newData(actionFile,path)
             if not(goTo(false)) then
                 location = readFile(locationFile)
@@ -1848,15 +1893,44 @@ local function findHeight()
             success,inspect=turtle.inspectDown()
         end
         location = readFile(locationFile)
-        location[3][1]=location[1][2]-1
+        location[3]={location[1][2]-1,' - bedrock level'}
         writeFile(locationFile,location)
+        return true
     end
 end
 
 
 
-local function spiral(mode)
+local function goToHeight(height)
+    local location = readFile(locationFile)
+
+    if type(location[3][1])=="nil" then
+        findHeight()
+        location = readFile(locationFile)
+    end
+
+
+    if height<location[3][1]  then
+        error('goToHeight: provided height lower than recorded bedrock height')
+    end
+
+    location = readFile(locationFile)
+    local path={}
+    if height>location[1][2] then
+        path={'move',{height-location[1][2],3},'end'}
+    else
+        path={'move',{height-location[1][2],-3},'end'}
+    end
+    newData(actionFile,path)
+    goTo(false)
+end
+
+
+
+
+local function spiral(mode,height)
     local mode = mode or false
+    local height = height or false
 
 
     local function reachFloor()
@@ -1892,35 +1966,76 @@ local function spiral(mode)
     local path={}
     local iteration= 1
 
+    if height~=false then
+        goToHeight(height)
+        location = readFile(locationFile)
+    end
+
     if findData(actionFile,'spiral')~=false then
+
         action = {}
         for index, value in ipairs(findData(actionFile,'spiral')) do
             table.insert( action, value )
-            iteration=action[2]
+        end
+
+
+        iteration=action[2]
+
+        if type(action[3])=="table"  then
+
+            if action[4]~='end' then
+
+                for index, value in ipairs({4,4}) do
+                    if action[value]~='end' then
+
+                        goTo(action[value],'excavate')
+
+                        if action[#action] ~= 'end' then
+                            table.insert(action,'end')
+                        end
+
+                        table.remove( action, 4 )
+
+                        editData(actionFile,'spiral',action)
+                    end
+                end
+            end
         end
     end
 
+    location = readFile(locationFile)
+    local center = action[3] or location[1]
 
     while true do
+        --action(name,iteration,starting position,move1,move2)
+        location = readFile(locationFile)
         action[2]=iteration
 
+        local moves={}
+
+
         if findData(actionFile,'spiral')~=false then
-            mineSpiral(action[3],iteration)
+
+            moves=mineSpiral(action[3],iteration)
+            action[4]=moves[1]
+            action[5]=moves[2]
+            action[6]='end'
+
         else
-            mineSpiral(location[1],iteration)
+
+            moves=mineSpiral(location[1],iteration)
+            location = readFile(locationFile)
             action[3]=location[1]
+            action[4]=moves[1]
+            action[5]=moves[2]
+            action[6]='end'
         end
 
 
-        if findData(actionFile,'mineSpiral')~=false then
-
-            if action[4]==nil then
-                for i = 3, 4, 1 do
-                    table.insert( action,findData(actionFile,'mineSpiral')[i])
-                end
+        if type(moves)~="nil" then
+            if action[#action] ~= 'end' then
+                
             end
-
-
             if action[#action] ~= 'end' then
                 table.insert(action,'end')
             end
@@ -1931,18 +2046,16 @@ local function spiral(mode)
             end
 
 
-
-            while action[5]~="end" do
-
+            while action[4]~="end" do
                 location = readFile(locationFile)
 
                 if mode then
-                    print('hell'..action[5][3])
-                    goTo({action[5][1],location[1][2],action[5][3]},'excavate_wood')
                     reachFloor()
+                    goTo(action[4])
                 else
                     goTo(action[4],'excavate')
                 end
+
                 table.remove( action,4 )
 
                 if action[#action] ~= 'end' then
@@ -1952,10 +2065,13 @@ local function spiral(mode)
                 editData(actionFile,'spiral',action)
             end
         end
+
+
+
         if iteration>20 then
-            print('gone')
+            --editData(actionFile,'spiral',{})
             goTo({0,0,0},'excavate')
-            break
+            return true
         end
         iteration=iteration+1
     end
@@ -2008,10 +2124,10 @@ end
 local function getNewCommand()
 
     commands=readFile(commandsFile)
-    local commandID = commands[1][1] or 1
+    local commandID = commands[1] or 1
 
     directive = readFile(directiveFile)
-    if directive[4][1]==nil then
+    if directive[4]==nil then
         directive[4]={0,' - command ID'}
         writeFile(directiveFile,directive)
     end
@@ -2023,7 +2139,7 @@ local function getNewCommand()
 
         updateFileFromGit(commandsGitFile,commandsFile)
         commands=readFile(commandsFile)
-        commandID = commands[1][1] or 1
+        commandID = commands[1] or 1
         
         if directive[4][1] >= commandID then
             writeFile(commandsFile,{commandID,''})
@@ -2032,26 +2148,28 @@ local function getNewCommand()
             commandID = commands[1]
         end
     end
-
+    
     if type(commands[2][2])~="nil" then
         local command = commands[2][1]
         local argumentCount = commands[2][2]
         local arguments={command}
         for i = 1, argumentCount, 1 do
-            if type(commands[3][2])=="nil" then
-                table.insert( arguments,commands[3][1])
-            else
-                table.insert( arguments,commands[3])
-            end
+            table.insert( arguments,commands[3])
             table.remove( commands,3 )
         end
         table.remove( commands, 2 )
         writeFile(commandsFile,commands)
         return arguments
     end
-    table.remove( commands, 2 )
-    writeFile(commandsFile,commands)
 end
+
+
+
+
+RunProtected(writeFile,commandsFile,{1})
+RunProtected(writeFile,directiveFile,directive)
+RunProtected(writeFile,actionFile,{})
+RunProtected(writeFile,locationFile,location)
 
 
 
@@ -2184,10 +2302,12 @@ customEnv.reboot = reboot
 
 
 local function runCommand(commandData)
+    --refuel(true)
     if commandData==false or type(commandData)=="nil" then
         return false
     else
         if type(commandData[1])~="nil" then
+            print(commandData[1],commandData[2],commandData[3])
             RunMultipleProtected({commandData},customEnv)
             print('AWAITING COMMAND ...')
         end
@@ -2195,9 +2315,7 @@ local function runCommand(commandData)
 end
 
 
-RunProtected(writeFile,commandsFile,{1})
-RunProtected(writeFile,directiveFile,directive)
-RunProtected(writeFile,actionFile,{})
+
 term.clear()
 print('AWAITING COMMAND ...')
 while true do
