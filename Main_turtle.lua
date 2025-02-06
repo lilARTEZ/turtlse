@@ -1,4 +1,4 @@
-locationFile='Location.txt'
+local locationFile='Location.txt'
 local directiveFile='directive.txt'
 local actionFile='action.txt'
 local stowageFile='stowage.txt'
@@ -8,12 +8,12 @@ local commandsFile = 'commands.txt'
 local mainGitFile = 'https://github.com/lilARTEZ/turtlse/raw/main/Main_turtle.lua'
 local commandsGitFile = 'https://raw.githubusercontent.com/lilARTEZ/turtlse/refs/heads/main/commands.txt'
 
-Location={{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{100,' - fuelcap'}}
+Location={{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{1000,' - fuelcap'}}
 local directive={{"Inquisitor"},{"start"},{0,0,0,' - hive home'},{0}}
 local action={}
 local avoidedBlocks={"computercraft:turtle","forge:chests"}
-local blockTags={"minecraft:logs","minecraft:sand","forge:ores"}
-local blockNames={"minecraft:stone",'minecraft:oak_log'}
+local blockTags={{"minecraft:logs",{'minecraft:oak_log'}},{"minecraft:sand",{}},{"forge:ores",{}},{'minecraft:stone',{"minecraft:stone","minecraft:andesite"}}}
+local blockNames={"minecraft:stone"}
 local stowage = {}
 local memory={"locations",{0,0,0,'home'},"end"}
 local commands={}
@@ -235,7 +235,7 @@ end
 local function getFuelCap(refuel)
     local refuel = refuel or false
     Location = readFile(locationFile)
-    local fuelCap = Location[4][1] or 100
+    local fuelCap = Location[4][1] or 500
 
 
     if refuel~= false then
@@ -410,7 +410,7 @@ local function scan(mode,bable)--(what to can:'up'or'all'..,what to look for'avo
     if bable=='avoid' then
         tags=avoidedBlocks
     elseif bable=='ores' then
-        tags={"forge:ores"}
+        tags={{"forge:ores"}}
     else
         tags=blockTags
     end
@@ -421,13 +421,13 @@ local function scan(mode,bable)--(what to can:'up'or'all'..,what to look for'avo
         if success then
             if type(data.tags)~="nil" then
                 for index, value in ipairs(tags) do
-                    if data.tags[value] then
+                    if data.tags[value[1]] then
                         Location = readFile(locationFile)
                         local blockLocation=blockLocation(Location)
                         if data.tags[ "computercraft:turtle" ] then
-                            table.insert(scanned,{blockLocation,value,data.state.facing})
+                            table.insert(scanned,{blockLocation,value[1],data.state.facing})
                         else
-                            table.insert(scanned,{blockLocation,value})
+                            table.insert(scanned,{blockLocation,value[1]})
                         end
                         break
                     end
@@ -444,13 +444,13 @@ local function scan(mode,bable)--(what to can:'up'or'all'..,what to look for'avo
             if success then
                 if type(data.tags)~="nil" then
                     for index, value in ipairs(tags) do
-                        if data.tags[value] then
+                        if data.tags[value[1]] then
                             Location = readFile(locationFile)
                             local blockLocation=blockLocation(Location)
                             if data.tags[ "computercraft:turtle" ] then
-                                table.insert(scanned,{blockLocation,value,data.state.facing})
+                                table.insert(scanned,{blockLocation,value[1],data.state.facing})
                             else
-                                table.insert(scanned,{blockLocation,value})
+                                table.insert(scanned,{blockLocation,value[1]})
                             end
                             break
                         end
@@ -466,12 +466,12 @@ local function scan(mode,bable)--(what to can:'up'or'all'..,what to look for'avo
         if success then
             if type(data.tags)~="nil" then
                 for index, value in ipairs(tags) do
-                    if data.tags[value] then
+                    if data.tags[value[1]] then
                         Location = readFile(locationFile)
                         if data.tags[ "computercraft:turtle" ] then
-                            table.insert(scanned,{{Location[1][1],Location[1][2]+1,Location[1][3]},value,data.state.facing})
+                            table.insert(scanned,{{Location[1][1],Location[1][2]+1,Location[1][3]},value[1],data.state.facing})
                         else
-                            table.insert(scanned,{{Location[1][1],Location[1][2]+1,Location[1][3]},value})
+                            table.insert(scanned,{{Location[1][1],Location[1][2]+1,Location[1][3]},value[1]})
                         end
                         break
                     end
@@ -486,12 +486,12 @@ local function scan(mode,bable)--(what to can:'up'or'all'..,what to look for'avo
         if success then
             if type(data.tags)~="nil" then
                 for index, value in ipairs(tags) do
-                    if data.tags[value] then
+                    if data.tags[value[1]] then
                         Location = readFile(locationFile)
                         if data.tags[ "computercraft:turtle" ] then
-                            table.insert(scanned,{{Location[1][1],Location[1][2]-1,Location[1][3]},value,data.state.facing})
+                            table.insert(scanned,{{Location[1][1],Location[1][2]-1,Location[1][3]},value[1],data.state.facing})
                         else
-                            table.insert(scanned,{{Location[1][1],Location[1][2]-1,Location[1][3]},value})
+                            table.insert(scanned,{{Location[1][1],Location[1][2]-1,Location[1][3]},value[1]})
                         end
                         break
                     end
@@ -917,13 +917,13 @@ end
 
 
 
-local function manageInventory()
-    local directive=readFile(directiveFile)
+local function manageInventory(mode)
+    local mode = mode or 'all'
     local reservedSlots={}
-    if directive[2]=="mining" then
+    if directive[2]=="mining" then--{'tag or name',number of reserved slots or 0 for no limit}, location in table dictates priority of the item
         reservedSlots={{'fuel',0},{'minecraft:raw_iron',1},{'minecraft:redstone',1},{'minecraft:diamond',0},{'minecraft:stone',1}}
     elseif directive[2]=="gathering" then
-        reservedSlots={{'fuel',0},{'minecraft:raw_iron',1},{'minecraft:redstone',1},{'minecraft:diamond',1},{'minecraft:stone'}}
+        reservedSlots={{'fuel',0},{'minecraft:raw_iron',1},{'minecraft:redstone',1},{'minecraft:diamond',1},{'minecraft:stone',1}}
     end
 
     local inventory = checkInventory(nil)
@@ -2056,7 +2056,8 @@ end
 
 
 
-local function goToHeight(height)
+local function goToHeight(height,fromBedrock)
+    fromBedrock = fromBedrock or false
     Location = readFile(locationFile)
 
     if type(Location[3][1])=="nil" then
@@ -2064,8 +2065,14 @@ local function goToHeight(height)
         Location = readFile(locationFile)
     end
 
+    local bedrockLevel = Location[3][1]
 
-    if height<Location[3][1]  then
+    if fromBedrock then
+        height=height+bedrockLevel
+    end
+
+
+    if height<bedrockLevel  then
         error('goToHeight: provided height lower than recorded bedrock height')
     end
 
@@ -2083,7 +2090,8 @@ end
 
 
 
-local function spiral(mode,height,maxiteration)
+local function spiral(mode,height,maxiteration,fromBedrock)
+    local fromBedrock = fromBedrock or false
     local mode = mode or false
     local height = height or false
     local maxiteration = maxiteration or 5
@@ -2123,7 +2131,7 @@ local function spiral(mode,height,maxiteration)
     local path={}
 
     if height~=false then
-        --goToHeight(height)
+        goToHeight(height,fromBedrock)
         Location = readFile(locationFile)
     end
 
@@ -2321,24 +2329,17 @@ local function getNewCommand()
         local command = commands[2][1]
         local argumentCount = commands[2][2]
         local arguments={command}
-        for i = 1, argumentCount, 1 do
-            table.insert( arguments,commands[3])
-            table.remove( commands,3 )
+        if argumentCount>0 then
+            for i = 1, argumentCount, 1 do
+                table.insert( arguments,commands[3])
+                table.remove( commands,3 )
+            end
         end
         table.remove( commands, 2 )
         writeFile(commandsFile,commands)
         return arguments
     end
 end
-
-
-
-
-RunProtected(writeFile,commandsFile,{1})
-RunProtected(writeFile,directiveFile,directive)
-RunProtected(writeFile,actionFile,{})
-RunProtected(writeFile,locationFile,Location)
-
 
 
 
@@ -2360,9 +2361,6 @@ if not fileExists(actionFile) then
     writeFile(actionFile,action)
 else
     action=readFile(actionFile)
-    if action[1]=='move' then
-        goTo(false,'excavate')
-    end
 end
 
 
@@ -2388,6 +2386,8 @@ end
 
 
 local function say(message)
+    term.clear()
+    term.setCursorPos(1,1)
     print(message)
 end
 
@@ -2397,6 +2397,17 @@ local function reboot()
 end
 
 
+
+local function userContinue()
+    read()
+end
+
+
+
+local function clearTerm()
+    term.clear()
+    term.setCursorPos(1,1)
+end
 
 
 
@@ -2453,6 +2464,8 @@ customEnv.manageInventory = manageInventory
 customEnv.decodeCraftingPattern = decodeCraftingPattern
 customEnv.reboot = reboot
 customEnv.updateProgram = updateProgram
+customEnv.userContinue = userContinue
+customEnv.clearTerm = clearTerm
 
 --3  -command number
 
@@ -2468,7 +2481,6 @@ customEnv.updateProgram = updateProgram
 
 
 local function runCommand(commandData)
-    --refuel(true)
     if commandData==false or type(commandData)=="nil" then
         return false
     else
@@ -2479,15 +2491,34 @@ local function runCommand(commandData)
                 local home = findInMemory('home')
                 RunProtected(goTo,{home[1],home[2],home[3]})
             end
-            print('AWAITING COMMAND ...')
         end
     end
 end
+customEnv.runCommand = runCommand
 
+local function findState()
+    local directive = readFile(directiveFile)
+    if directive[2]=='start' then
+        RunProtected(writeFile,commandsFile,{1})
+        RunProtected(writeFile,actionFile,{})
+        RunProtected(refuel,true)
+        directive[2]='running'
+        writeFile(directiveFile,directive)
+    else
+        
+    end
+end
+customEnv.findState = findState
+
+
+--RunProtected(writeFile,locationFile,{{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{1000,' - fuelcap'}})-- only for tests remove afterwards
+--RunProtected(writeFile,directiveFile,{{"Inquisitor"},{"start"},{0,0,0,' - hive home'},{0}})
 
 
 term.clear()
-print('AWAITING COMMAND ...')
+term.setCursorPos(1,1)
+RunProtected(findState)
+
 while true do
 
     local commandData = RunProtected(getNewCommand)
