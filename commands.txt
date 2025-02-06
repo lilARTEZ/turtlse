@@ -1,4 +1,12 @@
 6
+say$1
+Hello Cruel World!!!
+userContinue$0
+clearTerm$0
+say$1
+I am ready for work (:
+userContinue$0
+clearTerm$0
 spiral$4
 false
 12
