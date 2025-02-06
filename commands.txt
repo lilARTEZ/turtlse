@@ -1,3 +1,6 @@
-8
-say$1
-Please help me!! \n My children are starving, and i they need YOUR help. \n Quick!! \n Build a straw factory to feed my children!!
+9
+spiral$4
+false
+14
+10
+true
