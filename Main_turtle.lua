@@ -2283,6 +2283,11 @@ local function updateFileFromGit(GitFile,fileLocation)
 end
 
 
+local function updateProgram()
+    updateFileFromGit(mainGitFile,'startup.lua')
+end
+
+
 
 local function getNewCommand()
 
@@ -2393,9 +2398,6 @@ end
 
 
 
-local function updateProgram()
-    
-end
 
 
 
@@ -2450,6 +2452,7 @@ customEnv.checkInventory = checkInventory
 customEnv.manageInventory = manageInventory
 customEnv.decodeCraftingPattern = decodeCraftingPattern
 customEnv.reboot = reboot
+customEnv.updateProgram = updateProgram
 
 --3  -command number
 
