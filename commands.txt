@@ -1,14 +1,3 @@
-7
+8
 say$1
-Hello Cruel World!!!
-userContinue$0
-clearTerm$0
-say$1
-I am ready for work (:
-userContinue$0
-clearTerm$0
-spiral$4
-false
-12
-5
-true
+Please help me!! \n My children are starving, and i they need YOUR help. \n Quick!! \n Build a straw factory to feed my children!!
