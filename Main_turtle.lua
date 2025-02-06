@@ -1,4 +1,4 @@
-local locationFile='location.txt'
+locationFile='Location.txt'
 local directiveFile='directive.txt'
 local actionFile='action.txt'
 local stowageFile='stowage.txt'
@@ -8,12 +8,12 @@ local commandsFile = 'commands.txt'
 local mainGitFile = 'https://github.com/lilARTEZ/turtlse/raw/main/Main_turtle.lua'
 local commandsGitFile = 'https://raw.githubusercontent.com/lilARTEZ/turtlse/refs/heads/main/commands.txt'
 
-local location={{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{100,' - fuelcap'}}
+Location={{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{100,' - fuelcap'}}
 local directive={{"Inquisitor"},{"start"},{0,0,0,' - hive home'},{0}}
 local action={}
 local avoidedBlocks={"computercraft:turtle","forge:chests"}
-local blockTags={{"minecraft:logs",{'minecraft:oak_log'}},"minecraft:sand","forge:ores"}
-local blockNames={"minecraft:stone"}
+local blockTags={"minecraft:logs","minecraft:sand","forge:ores"}
+local blockNames={"minecraft:stone",'minecraft:oak_log'}
 local stowage = {}
 local memory={"locations",{0,0,0,'home'},"end"}
 local commands={}
@@ -69,6 +69,9 @@ local function encodeTable(tablet)
                 if string=='' then
                     string=content
                 else
+                    if type(content)=="table" then
+                        error('encode table: given too big table matrix: '..content[1]..' '..content[2])
+                    end
                     string=string..'$'..content
                 end
             end
@@ -140,6 +143,12 @@ end
 
 
 local function writeFile(path,data)--list of rows to write {data,data,data}
+    --term.clear()
+    --print('write: ',path)
+    --print('data: ',table.unpack(data),'\n')
+    for index, value in ipairs(data) do
+        --print(type(value))
+    end
     data=encodeTable(data)
     local file = io.open(path, 'w')
     for index, value in ipairs(data) do
@@ -182,10 +191,51 @@ end
 
 
 
+local function findInMemory(name)
+    local memory = readFile(memoryFile)
+
+    for index, line in ipairs(memory) do
+        if type(line)=="table" then
+            for index, value in ipairs(line) do
+                if value==name then
+                    return line
+                end
+            end
+        end
+    end
+    return false
+end
+
+
+
+local function editInMemory(name,data)
+    local memory = readFile(memoryFile)
+
+    for index1, line in ipairs(memory) do
+        if type(line)=="table" then
+            for index, value in ipairs(line) do
+                if value==name then
+                    if type(data)=="table" then
+                        table.insert( data,name)
+                        memory[index1]=data
+                    else
+                        memory[index1]={data,name}
+                    end
+                    writeFile(memoryFile,memory)
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+
+
 local function getFuelCap(refuel)
     local refuel = refuel or false
-    local location = readFile(locationFile)
-    local fuelCap = location[4][1] or 100
+    Location = readFile(locationFile)
+    local fuelCap = Location[4][1] or 100
 
 
     if refuel~= false then
@@ -208,14 +258,14 @@ local function getFuelCap(refuel)
                 turtle.refuel(math.floor(((fuelCap*1.2)-turtle.getFuelLevel())/(fuelValue/fuelItem)))
 
                 usedFuel=usedFuel+(math.floor(((fuelCap*1.2)-turtle.getFuelLevel())/(fuelValue/fuelItem)))/2
-                location[4][1]=fuelCap+usedFuel
-                writeFile(locationFile,location)
+                Location[4][1]=fuelCap+usedFuel
+                writeFile(locationFile,Location)
                 return true
             else
                 turtle.refuel()
                 usedFuel=usedFuel+fuelValue/2
-                location[4][1]=fuelCap+usedFuel
-                writeFile(locationFile,location)
+                Location[4][1]=fuelCap+usedFuel
+                writeFile(locationFile,Location)
                 return false
             end
         elseif turtle.getFuelLevel()>=fuelCap then
@@ -255,31 +305,36 @@ end
 
 
 
-local function turn(direction,location)--turns in provided str direction ('left','right','back'),location optional 
+local function turn(direction,Location)--turns in provided str direction ('left','right','back'),Location optional 
 
-    location = location or readFile(locationFile)
-    if location[2]==nil then
-        location=readFile(locationFile)
+    Location = Location or readFile(locationFile)
+    if Location[2]==nil then
+        Location=readFile(locationFile)
     end
-    local facing=location[2][1]
+    local facing=Location[2][1]
 
+    if facing==-2 then
+        facing=2
+    end
 
     if direction=='left' then
         facing=facing-1
-        if facing<-2 then
-            facing=1
+        if facing==-2 then
+            facing=2
         end
         turtle.turnLeft()
     elseif direction=='right' then
         facing=facing+1
-        if facing>2 then
-            facing=facing-3
+        if facing==3 then
+            facing=-1
         end
         turtle.turnRight()
     elseif direction=='back' then
         facing=facing+2
-        if facing>2 then
-            facing=facing-3
+        if facing==3 then
+            facing=-1
+        elseif facing==4 then
+            facing=0
         end
         turtle.turnRight()
         turtle.turnRight()
@@ -289,58 +344,59 @@ local function turn(direction,location)--turns in provided str direction ('left'
 
 
     if facing==0 then
-        location[2]={facing,' - facing Z'}
+        Location[2]={facing,' - facing Z'}
     elseif facing==1 then
-        location[2]={facing,' - facing X'}
+        Location[2]={facing,' - facing X'}
     elseif facing==-1 then
-        location[2]={facing,' - facing -X'}
+        Location[2]={facing,' - facing -X'}
     else
-        location[2]={facing,' - facing -Z'}
+        Location[2]={facing,' - facing -Z'}
     end
 
-    writeFile(locationFile,location)
-    return location
+    writeFile(locationFile,Location)
+    return Location
 end
 
 
 
-local function turnTo(location,direction)
+local function turnTo(direction)--turns to number direction
+    Location=readFile(locationFile)
     if type(direction)~="number" then
         error('turnTo() called with nill direction')
     end
-    location=readFile(locationFile)
     if math.sqrt(direction^2)==2 then
         direction=2
     end
-    if math.sqrt(location[2][1]^2)==2 then
-        location[2][1]=2
+    if math.sqrt(Location[2][1]^2)==2 then
+        Location[2][1]=2
     end
-    while location[2][1]~=direction do
-        if (location[2][1]==2 and direction==-1) or (direction>location[2][1]) then
-            location = turn('right',location)
+    while Location[2][1]~=direction do
+        if (Location[2][1]==2 and direction==-1) or (direction>Location[2][1]) then
+            Location = turn('right',Location)
         else
-            location = turn('left',location)
+            Location = turn('left',Location)
         end
     end
-    return location
+    writeFile(locationFile,Location)
+    return Location
 end
 
 
 
-local function blockLocation(location)
-    local blockLocation={location[1][1],location[1][2],location[1][3]}
-    local destiny=location[2][1]
+local function blockLocation(Location)
+    local blockLocation={Location[1][1],Location[1][2],Location[1][3]}
+    local destiny=Location[2][1]
     if destiny==3 then
-        blockLocation[2]=location[1][2]+1
+        blockLocation[2]=Location[1][2]+1
     elseif destiny==-3 then
-        blockLocation[2]=location[1][2]-1
+        blockLocation[2]=Location[1][2]-1
     else
         if destiny==1 or destiny==-1 then
-            blockLocation[1]=location[1][1]+destiny
+            blockLocation[1]=Location[1][1]+destiny
         elseif destiny==0 then
-            blockLocation[3]=location[1][3]+1
+            blockLocation[3]=Location[1][3]+1
         else
-            blockLocation[3]=location[1][3]-1
+            blockLocation[3]=Location[1][3]-1
         end
     end
     return blockLocation
@@ -348,11 +404,13 @@ end
 
 
 
-local function scan(mode,bable)
-    local bable = bable or 'ores'
+local function scan(mode,bable)--(what to can:'up'or'all'..,what to look for'avoid'or'ores'..)---{ { {blockLocation(x,y,z)} ,blockTag, if Turtle facing direction},...{} }
+    bable = bable or 'ores'
     local tags = {}
     if bable=='avoid' then
         tags=avoidedBlocks
+    elseif bable=='ores' then
+        tags={"forge:ores"}
     else
         tags=blockTags
     end
@@ -364,8 +422,8 @@ local function scan(mode,bable)
             if type(data.tags)~="nil" then
                 for index, value in ipairs(tags) do
                     if data.tags[value] then
-                        location = readFile(locationFile)
-                        local blockLocation=blockLocation(location)
+                        Location = readFile(locationFile)
+                        local blockLocation=blockLocation(Location)
                         if data.tags[ "computercraft:turtle" ] then
                             table.insert(scanned,{blockLocation,value,data.state.facing})
                         else
@@ -381,14 +439,14 @@ local function scan(mode,bable)
 
     if mode=="around" or mode=='all' then
         for i = 1,4, 1 do
-            location=turn(location,'left')
+            Location=turn('left') or Location
             local success, data = turtle.inspect()
             if success then
                 if type(data.tags)~="nil" then
                     for index, value in ipairs(tags) do
                         if data.tags[value] then
-                            location = readFile(locationFile)
-                            local blockLocation=blockLocation(location)
+                            Location = readFile(locationFile)
+                            local blockLocation=blockLocation(Location)
                             if data.tags[ "computercraft:turtle" ] then
                                 table.insert(scanned,{blockLocation,value,data.state.facing})
                             else
@@ -409,11 +467,11 @@ local function scan(mode,bable)
             if type(data.tags)~="nil" then
                 for index, value in ipairs(tags) do
                     if data.tags[value] then
-                        location = readFile(locationFile)
+                        Location = readFile(locationFile)
                         if data.tags[ "computercraft:turtle" ] then
-                            table.insert(scanned,{{location[1][1],location[1][2]+1,location[1][3]},value,data.state.facing})
+                            table.insert(scanned,{{Location[1][1],Location[1][2]+1,Location[1][3]},value,data.state.facing})
                         else
-                            table.insert(scanned,{{location[1][1],location[1][2]+1,location[1][3]},value})
+                            table.insert(scanned,{{Location[1][1],Location[1][2]+1,Location[1][3]},value})
                         end
                         break
                     end
@@ -429,11 +487,11 @@ local function scan(mode,bable)
             if type(data.tags)~="nil" then
                 for index, value in ipairs(tags) do
                     if data.tags[value] then
-                        location = readFile(locationFile)
+                        Location = readFile(locationFile)
                         if data.tags[ "computercraft:turtle" ] then
-                            table.insert(scanned,{{location[1][1],location[1][2]-1,location[1][3]},value,data.state.facing})
+                            table.insert(scanned,{{Location[1][1],Location[1][2]-1,Location[1][3]},value,data.state.facing})
                         else
-                            table.insert(scanned,{{location[1][1],location[1][2]-1,location[1][3]},value})
+                            table.insert(scanned,{{Location[1][1],Location[1][2]-1,Location[1][3]},value})
                         end
                         break
                     end
@@ -441,26 +499,28 @@ local function scan(mode,bable)
             end
         end
     end
+
+
     return scanned
 end
 
 
 
-local function addToLocation(location,destiny)
+local function addToLocation(Location,destiny)
     if destiny==1 then
-        location[1][1]=location[1][1]+1
+        Location[1][1]=Location[1][1]+1
     elseif destiny==-1 then
-        location[1][1]=location[1][1]-1
+        Location[1][1]=Location[1][1]-1
     elseif destiny==0 then
-        location[1][3]=location[1][3]+1
+        Location[1][3]=Location[1][3]+1
     elseif destiny==2 then
-        location[1][3]=location[1][3]-1
+        Location[1][3]=Location[1][3]-1
     elseif destiny==3 then
-        location[1][2]=location[1][2]+1
+        Location[1][2]=Location[1][2]+1
     else
-        location[1][2]=location[1][2]-1
+        Location[1][2]=Location[1][2]-1
     end
-    return location
+    return Location
 end
 
 
@@ -485,11 +545,11 @@ end
 
 
 local function getDirection(destiny)
-    local location = readFile(locationFile)
+    Location = readFile(locationFile)
     local distance = {0,0,0}
     local path={}
     
-    for index, value in ipairs(location[1]) do
+    for index, value in ipairs(Location[1]) do
         distance[index]=destiny[index]-value
     end
 
@@ -520,10 +580,27 @@ end
 
 
 
-local function move(destiny,mine)
-    local location = readFile(locationFile)
+local function move(destiny,mine,returnHome)
+
+    returnHome = returnHome or false
+    Location = readFile(locationFile)
     local mine = mine or false
     local destiny = tonumber(destiny)
+
+    if returnHome==false then
+
+        local home = findInMemory('home')
+        local distance = math.sqrt( (home[1]-Location[1][1])^2+(home[2]-Location[1][2])^2+(home[3]-Location[1][3])^2 )
+
+        if distance>=turtle.getFuelLevel()-20 then
+            if refuel()==false then
+                error('Turtle has no more fuel, turtle returning to home location')
+            end
+        end
+    end
+
+
+
     if destiny==3 then
         while mine do
             local state,datatable = turtle.inspectUp()
@@ -537,7 +614,7 @@ local function move(destiny,mine)
             end
         end
         turtle.up()
-        location[1][2]=location[1][2]+1
+        Location[1][2]=Location[1][2]+1
     elseif destiny==-3 then
         while mine do
             local state,datatable = turtle.inspectDown()
@@ -551,10 +628,11 @@ local function move(destiny,mine)
             end
         end
         turtle.down()
-        location[1][2]=location[1][2]-1
+        Location[1][2]=Location[1][2]-1
     else
-        location = turnTo(location,destiny)
-        location=addToLocation(location,destiny)
+        turnTo(destiny)
+        Location = readFile(locationFile)
+        Location = addToLocation(Location,destiny)
         while mine do
             local state,datatable = turtle.inspect()
             if type(datatable.tags)=="nil" or state==false then
@@ -568,8 +646,8 @@ local function move(destiny,mine)
         end
         turtle.forward()
     end
-    writeFile(locationFile,location)
-    return location
+    writeFile(locationFile,Location)
+    return Location
 end
 
 
@@ -605,9 +683,6 @@ local function editData(fileName,name,actionList)
     local before = {}
     local after = {}
 
-    if type(actionData)~="table" then
-        actionData={actionData}
-    end
     for index, value in ipairs(actionData) do
         if value==name and found==0 then
             found=1
@@ -644,6 +719,24 @@ end
 
 
 local function newData(fileName,data)
+    --[[
+    term.clear()
+    local err=false
+    for index, value in ipairs(data) do
+        if type(value)=="table" then
+            for index, value in ipairs(value) do
+                if type(value)=="table" then
+                    print('table: ',table.unpack(value))
+                    err=true
+                end
+            end
+        end
+    end
+    if err then
+        local info = debug.getinfo(2, "n")
+        print(info.name)
+    end
+    --]]
     local fileData={}
     for index, value in ipairs(data) do
         table.insert(fileData,value)
@@ -693,7 +786,7 @@ local function checkStowage(stowageID,item)--{{slot,item.name,item.count,item.da
     if stowageID~=nil then
         stowageID=tonumber(stowageID)
 
-        local stowage=findData(stowageFile,stowageID)--{{stowageID,location,{slot,item.name,item.count,item.damage},"end"}}
+        local stowage=findData(stowageFile,stowageID)--{{stowageID,Location,{slot,item.name,item.count,item.damage},"end"}}
 
         table.remove( stowage,1 )
         for index, value in ipairs(stowage) do
@@ -1374,9 +1467,9 @@ local function moveItemInInventory(destiny,item,quantity,forbiddenSlotList)
             return false
         end
 
-        for index, location in ipairs(itemLocations) do
+        for index, Location in ipairs(itemLocations) do
             for index2, forbiddenSlot in ipairs(forbiddenSlotList) do
-                if location==forbiddenSlot then
+                if Location==forbiddenSlot then
                     table.remove( itemLocations,index )
                     table.remove( forbiddenSlotList,index2 )
                 end
@@ -1407,8 +1500,8 @@ end
 
 local function emptyInventoryTo(storage_name)--storage_name=('front','back'...)
 
-    location = location or readFile(locationFile)
-    local facing=location[2][1]
+    Location = Location or readFile(locationFile)
+    local facing=Location[2][1]
 
     turn(storage_name)
 
@@ -1587,7 +1680,7 @@ end
 
 
 
-local function avoidPath(location,destiny,turtleRotation)
+local function avoidPath(Location,destiny,turtleRotation)
     local path = {'move'}
     if destiny==3 then
         if turtleRotation~=nil then
@@ -1604,7 +1697,7 @@ local function avoidPath(location,destiny,turtleRotation)
             table.insert(path,{1,0})
         end
         table.insert(path,{2,3})
-        local target=turnFromLocation(location[2][1],'left')
+        local target=turnFromLocation(Location[2][1],'left')
         target=turnFromLocation(target,'left')
         table.insert(path,{1,target})
     elseif destiny==-3 then
@@ -1622,11 +1715,11 @@ local function avoidPath(location,destiny,turtleRotation)
             table.insert(path,{1,2})
         end
         table.insert(path,{2,-3})
-        local target=turnFromLocation(location[2][1],'left')
+        local target=turnFromLocation(Location[2][1],'left')
         target=turnFromLocation(target,'left')
         table.insert(path,{1,target})
     else
-        local target=turnFromLocation(location[2][1],'left')
+        local target=turnFromLocation(Location[2][1],'left')
         table.insert(path,{1,target})
         target=turnFromLocation(target,'right')
         table.insert(path,{2,target})
@@ -1658,44 +1751,88 @@ end
 
 
 
-local function excavate(start)
-    local location = readFile(locationFile)
-    local scanned={"excavate",start}
+local function excavate(startLocation,startFacing)
+    Location = readFile(locationFile)
+    local scanned={"excavate",startLocation,startFacing}
 
-    location = readFile(locationFile)
+
     if findData(actionFile,'excavate')~=false then
         scanned={}
         for index, value in ipairs(findData(actionFile,'excavate')) do
-            table.insert( scanned,value)
+            if value~='end' then
+                table.insert( scanned,value)
+            end
         end
     end
 
-    for index, value in ipairs(scan('all','ores')) do
-        table.insert( scanned,value)
+    local scannus = scan('all','ores')
+
+    for index, value1 in ipairs(scannus) do
+        for index, value in ipairs(scanned) do
+            if type(value)=="table" and type(value1[1])=="table" then
+                if value[1]==value1[1][1] and value[2]==value1[1][2] and value[3]==value1[1][3] then
+                    goto continue
+                end
+            end
+        end
+        table.insert( scanned,value1[1])
+        ::continue::
     end
 
 
-    if #scanned~='end' then
+    if scanned[#scanned]~='end' then
         table.insert(scanned,'end')
     end
 
     
-    if scanned[3]~='end' then
+    if scanned[4]~='end' then
+
+
+        for index, value in ipairs(scanned) do
+            if value=='end' and index~=#scanned then
+                table.remove( scanned, index )
+            elseif value~='end' and index==#scanned then
+                table.insert(scanned,'end')
+            end
+        end
+
+        for index1, value1 in ipairs(scanned) do
+            for i = index1+1, #scanned-index1, 1 do
+                if type(value1)=="table" and type(scanned[i])=="table" then
+                    if value1[1]==scanned[i][1] and value1[2]==scanned[i][2] and value1[3]==scanned[i][3] then
+                        table.remove( scanned, i )
+                    end
+                end
+            end
+        end
+
+
         if findData(actionFile,'excavate')==false then
-            newData(actionFile,scanned)
+
+            newData(actionFile,scanned)--here?
+
         else
+
             editData(actionFile,'excavate',scanned)
         end
 
         local closestBlock={}
-        for i = 3, #scanned-1, 1 do
-            location = readFile(locationFile)
-            local distance=math.sqrt((((scanned[i][1]-location[1][1])^2)+((scanned[i][2]-location[1][2])^2)+((scanned[i][3]-location[1][3])^2)))
-            if closestBlock[1]==nil then
-                closestBlock={i,distance}
-            else
-                if closestBlock[2]>distance then
+        for i = 4, #scanned-1, 1 do
+            if type(scanned[i][1])~="nil" then
+
+                Location = readFile(locationFile)
+
+                local distance=math.sqrt((((scanned[i][1]-Location[1][1])^2)+((scanned[i][2]-Location[1][2])^2)+((scanned[i][3]-Location[1][3])^2)))
+                
+                if closestBlock[1]==nil then
+
                     closestBlock={i,distance}
+                else
+
+                    if closestBlock[2]>distance then
+
+                        closestBlock={i,distance}
+                    end
                 end
             end
         end
@@ -1703,9 +1840,18 @@ local function excavate(start)
 
         local block=scanned[closestBlock[1]]
         table.remove(scanned,closestBlock[1])
-        location = readFile(locationFile)
         
-        if findData(actionFile'excavate')==false then
+
+        for index, value in ipairs(scanned) do
+            if value=='end' and index~=#scanned then
+                table.remove( scanned, index )
+            elseif value~='end' and index==#scanned then
+                table.insert(scanned,'end')
+            end
+        end
+
+
+        if findData(actionFile,'excavate')==false then
             newData(actionFile,scanned)
         else
             editData(actionFile,'excavate',scanned)
@@ -1715,7 +1861,7 @@ local function excavate(start)
         if findData(actionFile,'excavate')~=false then
             editData(actionFile,'excavate',{})
         end
-        return {false,scanned[2]}
+        return {false,scanned[2],scanned[3]}
     end
 end
 
@@ -1725,8 +1871,13 @@ local function goTo(destiny,mode)
 
     local destiny=destiny or false
     local mode=mode or 'none'
-    location = readFile(locationFile)
+    Location = readFile(locationFile)
     local action = {}
+    local returnHome = false
+
+    if mode=='return' then
+        returnHome=true
+    end
 
     if destiny~=false then
         if goToPath(destiny)==false then
@@ -1744,27 +1895,27 @@ local function goTo(destiny,mode)
 
 
     while action[2]~="end" do
-        location = readFile(locationFile)
+        Location = readFile(locationFile)
 
 
         if mode=='excavate' then
             while true do
-                local excavated=excavate(location)
+                Location = readFile(locationFile)
+                local excavated=excavate(Location[1],Location[2][1])
                 if excavated[1]==false then
-                    break
-                end
-                goTo(excavated[2])
-                if manageInventory()==false or refuel()==false then
-                    local locations = findData(memoryFile,'locations')
-                    local home={0,0,0}
-                    for index, value in ipairs(locations) do
-                        if value[4]=='home' then
-                            home={value[1],value[2],value[3]}
-                            break
-                        end
+
+                    if excavated[2]~=Location[1] then
+                        goTo(excavated[2])
                     end
-                    goTo(home)
-                    return false
+
+                    turnTo(excavated[3])
+                    Location = readFile(locationFile)
+                    break
+
+                else
+                    if excavated[2]~=Location[1] then
+                        goTo(excavated[2])
+                    end
                 end
             end
         end
@@ -1773,41 +1924,45 @@ local function goTo(destiny,mode)
         if action[2][2]==3 then
             if scan('up','avoid')[1]~=nil then
                 if action[2][1]>1 then
-                    avoidPath(location,action[2][2],scan('up','avoid')[1][3]) 
+                    avoidPath(Location,action[2][2],scan('up','avoid')[1][3]) 
                     goTo(false,mode)
                     action[2][1]=action[2][1]-2
                 else
                     return false
                 end
             else
-                location=move(action[2][2],true)
+                move(action[2][2],true,returnHome)
+                Location = readFile(locationFile)
                 action[2][1]=action[2][1]-1
             end
         elseif action[2][2]==-3 then
             if scan('down','avoid')[1]~=nil then
                 if action[2][1]>1 then
-                    avoidPath(location,action[2][2],scan('down','avoid')[1][3])
+                    avoidPath(Location,action[2][2],scan('down','avoid')[1][3])
                     goTo(false,mode)
                     action[2][1]=action[2][1]-2
                 else
                     return false
                 end
             else
-                location=move(action[2][2],true)
+                move(action[2][2],true,returnHome)
+                Location = readFile(locationFile)
                 action[2][1]=action[2][1]-1
             end
         else
-            location=turnTo(location,action[2][2])
+            turnTo(action[2][2])
+            Location = readFile(locationFile)
             if scan('forward','avoid')[1]~=nil then
                 if action[2][1]>1 then
-                    avoidPath(location,action[2][2],scan('forward','avoid')[1][3])
+                    avoidPath(Location,action[2][2],scan('forward','avoid')[1][3])
                     goTo(false,mode)
                     action[2][1]=action[2][1]-2
                 else
                     return false
                 end
             else
-                location=move(action[2][2],true)
+                move(action[2][2],true,returnHome)
+                Location = readFile(locationFile)
                 action[2][1]=action[2][1]-1
             end
         end
@@ -1825,9 +1980,9 @@ local function goTo(destiny,mode)
 
 
         editData(actionFile,'move',action)
-        writeFile(locationFile,location)
+        writeFile(locationFile,Location)
     end
-    writeFile(locationFile,location)
+    writeFile(locationFile,Location)
     editData(actionFile,'move',{})
     return true
 end
@@ -1879,22 +2034,22 @@ end
 
 
 local function findHeight()
-    local location = readFile(locationFile)
-    if location[3][1]==nil then
+    Location = readFile(locationFile)
+    if Location[3][1]==nil then
         local success,inspect=turtle.inspectDown()
         while inspect.name~='minecraft:bedrock' do
-            location = readFile(locationFile)
+            Location = readFile(locationFile)
             local path={'move',{1,-3},'end'}
             newData(actionFile,path)
             if not(goTo(false)) then
-                location = readFile(locationFile)
-                avoidPath(location,-3,scan('down','avoid')[3])
+                Location = readFile(locationFile)
+                avoidPath(Location,-3,scan('down','avoid')[3])
             end
             success,inspect=turtle.inspectDown()
         end
-        location = readFile(locationFile)
-        location[3]={location[1][2]-1,' - bedrock level'}
-        writeFile(locationFile,location)
+        Location = readFile(locationFile)
+        Location[3]={Location[1][2]-1,' - bedrock level'}
+        writeFile(locationFile,Location)
         return true
     end
 end
@@ -1902,24 +2057,24 @@ end
 
 
 local function goToHeight(height)
-    local location = readFile(locationFile)
+    Location = readFile(locationFile)
 
-    if type(location[3][1])=="nil" then
+    if type(Location[3][1])=="nil" then
         findHeight()
-        location = readFile(locationFile)
+        Location = readFile(locationFile)
     end
 
 
-    if height<location[3][1]  then
+    if height<Location[3][1]  then
         error('goToHeight: provided height lower than recorded bedrock height')
     end
 
-    location = readFile(locationFile)
+    Location = readFile(locationFile)
     local path={}
-    if height>location[1][2] then
-        path={'move',{height-location[1][2],3},'end'}
+    if height>Location[1][2] then
+        path={'move',{height-Location[1][2],3},'end'}
     else
-        path={'move',{height-location[1][2],-3},'end'}
+        path={'move',{height-Location[1][2],-3},'end'}
     end
     newData(actionFile,path)
     goTo(false)
@@ -1928,18 +2083,20 @@ end
 
 
 
-local function spiral(mode,height)
+local function spiral(mode,height,maxiteration)
     local mode = mode or false
     local height = height or false
+    local maxiteration = maxiteration or 5
+    local iteration =  1
 
 
     local function reachFloor()
-        local location = readFile(locationFile)
+        Location = readFile(locationFile)
         local state,datatable = turtle.inspectDown()
         while true do
             if type(datatable.tags)=="nil" or state==false or datatable.tags[ "minecraft:replaceable" ]==true then
-                location=move(-3,true)
-                writeFile(locationFile,location)
+                Location=move(-3,true)
+                writeFile(locationFile,Location)
             else
                 break
             end
@@ -1950,8 +2107,8 @@ local function spiral(mode,height)
         local state,datatable = turtle.inspectUp()
         while true do
             if type(datatable.tags)~="nil" and state~=false and datatable.tags[ "minecraft:replaceable" ]~=true then
-                location=move(3,true)
-                writeFile(locationFile,location)
+                Location=move(3,true)
+                writeFile(locationFile,Location)
             else
                 break
             end
@@ -1962,13 +2119,12 @@ local function spiral(mode,height)
 
 
     local action = {'spiral'}
-    local location = readFile(locationFile)
+    Location = readFile(locationFile)
     local path={}
-    local iteration= 1
 
     if height~=false then
-        goToHeight(height)
-        location = readFile(locationFile)
+        --goToHeight(height)
+        Location = readFile(locationFile)
     end
 
     if findData(actionFile,'spiral')~=false then
@@ -1979,37 +2135,44 @@ local function spiral(mode,height)
         end
 
 
+
         iteration=action[2]
+        maxiteration = action[4]
 
         if type(action[3])=="table"  then
 
-            if action[4]~='end' then
+            if action[5]~='end' then
 
-                for index, value in ipairs({4,4}) do
+
+                if action[#action] ~= 'end' then
+                    table.insert(action,'end')
+                end
+
+
+                for index, value in ipairs({5,5}) do
                     if action[value]~='end' then
 
                         goTo(action[value],'excavate')
 
-                        if action[#action] ~= 'end' then
-                            table.insert(action,'end')
-                        end
-
-                        table.remove( action, 4 )
+                        table.remove( action, 5 )
 
                         editData(actionFile,'spiral',action)
+                    else
+                        break
                     end
                 end
             end
         end
     end
 
-    location = readFile(locationFile)
-    local center = action[3] or location[1]
+    Location = readFile(locationFile)
+    local center = action[3] or Location[1]
 
     while true do
-        --action(name,iteration,starting position,move1,move2)
-        location = readFile(locationFile)
+        --action(name,iteration,starting position,maxiteration,move1,move2)
+        Location = readFile(locationFile)
         action[2]=iteration
+        action[4]=maxiteration
 
         local moves={}
 
@@ -2017,18 +2180,18 @@ local function spiral(mode,height)
         if findData(actionFile,'spiral')~=false then
 
             moves=mineSpiral(action[3],iteration)
-            action[4]=moves[1]
-            action[5]=moves[2]
-            action[6]='end'
+            action[5]=moves[1]
+            action[6]=moves[2]
+            action[7]='end'
 
         else
 
-            moves=mineSpiral(location[1],iteration)
-            location = readFile(locationFile)
-            action[3]=location[1]
-            action[4]=moves[1]
-            action[5]=moves[2]
-            action[6]='end'
+            moves=mineSpiral(Location[1],iteration)
+            Location = readFile(locationFile)
+            action[3]=Location[1]
+            action[5]=moves[1]
+            action[6]=moves[2]
+            action[7]='end'
         end
 
 
@@ -2046,17 +2209,17 @@ local function spiral(mode,height)
             end
 
 
-            while action[4]~="end" do
-                location = readFile(locationFile)
+            while action[5]~="end" do
+                Location = readFile(locationFile)
 
                 if mode then
                     reachFloor()
-                    goTo(action[4])
+                    goTo(action[5])
                 else
-                    goTo(action[4],'excavate')
+                    goTo(action[5],'excavate')
                 end
 
-                table.remove( action,4 )
+                table.remove( action,5 )
 
                 if action[#action] ~= 'end' then
                     table.insert(action,'end')
@@ -2068,8 +2231,8 @@ local function spiral(mode,height)
 
 
 
-        if iteration>20 then
-            --editData(actionFile,'spiral',{})
+        if iteration>maxiteration then
+            editData(actionFile,'spiral',{})
             goTo({0,0,0},'excavate')
             return true
         end
@@ -2087,13 +2250,13 @@ end
 
 local function mineForResources()
 
-    location = readFile(locationFile)
-    if location[3][1] == nil then
+    Location = readFile(locationFile)
+    if Location[3][1] == nil then
         findHeight()
-        location = readFile(locationFile)
+        Location = readFile(locationFile)
     end
 
-    local bedrock = location[3][1]
+    local bedrock = Location[3][1]
     local resources={}
 
 
@@ -2149,7 +2312,7 @@ local function getNewCommand()
         end
     end
     
-    if type(commands[2][2])~="nil" then
+    if type(commands[2])=="table" then
         local command = commands[2][1]
         local argumentCount = commands[2][2]
         local arguments={command}
@@ -2169,15 +2332,15 @@ end
 RunProtected(writeFile,commandsFile,{1})
 RunProtected(writeFile,directiveFile,directive)
 RunProtected(writeFile,actionFile,{})
-RunProtected(writeFile,locationFile,location)
+RunProtected(writeFile,locationFile,Location)
 
 
 
 
 if not fileExists(locationFile) or type(readFile(locationFile)[1])=='nil' then
-    writeFile(locationFile,location)
+    writeFile(locationFile,Location)
 else
-    location = readFile(locationFile)
+    Location = readFile(locationFile)
 end
 
 
@@ -2307,8 +2470,12 @@ local function runCommand(commandData)
         return false
     else
         if type(commandData[1])~="nil" then
-            print(commandData[1],commandData[2],commandData[3])
-            RunMultipleProtected({commandData},customEnv)
+            print(table.unpack(commandData))
+            local result = RunMultipleProtected({commandData},customEnv)
+            if result==nil then
+                local home = findInMemory('home')
+                RunProtected(goTo,{home[1],home[2],home[3]})
+            end
             print('AWAITING COMMAND ...')
         end
     end
@@ -2358,3 +2525,6 @@ local item = turtle.getItemDetail(1)
 local state,datatable = turtle.inspect()
 writeFile('testData.txt',{state,textutils.serialise(datatable)})
 --]]
+
+--local info = debug.getinfo(2, "n") gets data about 2nd function in the stack (function that called the function)
+--print(info.name)  name of the function
