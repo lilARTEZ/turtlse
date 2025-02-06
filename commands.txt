@@ -9,6 +9,6 @@ userContinue$0
 clearTerm$0
 spiral$4
 false
-64
+12
 5
 true
