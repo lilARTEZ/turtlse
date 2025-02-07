@@ -2025,14 +2025,6 @@ end
 
 
 
---levels from bedrock
---diamond,redstone 5 
---iron 80
---copper,coal? 112
---coal 160
-
-
-
 local function findHeight()
     Location = readFile(locationFile)
     if Location[3][1]==nil then
@@ -2258,6 +2250,16 @@ end
 
 
 local function mineForResources()
+
+--[[
+    --levels from bedrock
+    --diamond,redstone 5 
+    --iron 80
+    --copper
+    --coal?
+    --coal 160
+--]]
+
 
     Location = readFile(locationFile)
     if Location[3][1] == nil then
