@@ -652,7 +652,7 @@ end
 
 
 
-local function findData(fileName,name)
+local function findData(fileName,name)--looks for single name, and writes table til 'end'
     local actionData = readFile(fileName)
     local found=false
     local action={}
@@ -2044,6 +2044,7 @@ local function findHeight()
             if not(goTo(false)) then
                 Location = readFile(locationFile)
                 avoidPath(Location,-3,scan('down','avoid')[3])
+                goTo(false)
             end
             success,inspect=turtle.inspectDown()
         end
@@ -2496,6 +2497,7 @@ local function runCommand(commandData)
 end
 customEnv.runCommand = runCommand
 
+
 local function findState()
     local directive = readFile(directiveFile)
     if directive[2]=='start' then
@@ -2504,15 +2506,56 @@ local function findState()
         RunProtected(refuel,true)
         directive[2]='running'
         writeFile(directiveFile,directive)
-    else
+    elseif directive[2]=='running' then
+
+        local action = readFile(actionFile)
+        for index, value in ipairs(action) do
+            if type(value)=="string" then
+
+
+                if value=='move' then
+
+
+                    RunProtected(goTofalse)
+
+                elseif value=='excavate' then
+
+
+                    while true do
+                        Location = readFile(locationFile)
+                        local excavated=excavate(Location[1],Location[2][1])
+                        if excavated[1]==false then
         
+                            if excavated[2]~=Location[1] then
+                                RunProtected(goTo,excavated[2])
+                            end
+        
+                            turnTo(excavated[3])
+                            Location = readFile(locationFile)
+                            break
+        
+                        else
+                            if excavated[2]~=Location[1] then
+                                RunProtected(goTo,excavated[2])
+                            end
+                        end
+                    end
+
+                elseif value=='spiral' then
+
+                    local spiralData = findData(actionFile,'spiral')
+                    RunProtected(spiral,table.unpack(spiralData,2,#spiralData-1))
+
+                end
+            end
+        end
     end
 end
 customEnv.findState = findState
 
 
 --RunProtected(writeFile,locationFile,{{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{1000,' - fuelcap'}})-- only for tests remove afterwards
---RunProtected(writeFile,directiveFile,{{"Inquisitor"},{"start"},{0,0,0,' - hive home'},{0}})
+--RunProtected(writeFile,directiveFile,{{"Drone"},{"start"},{0,0,0,' - hive home'},{0}})
 
 
 term.clear()
@@ -2524,6 +2567,7 @@ while true do
     local commandData = RunProtected(getNewCommand)
     RunProtected(runCommand,commandData)
     os.sleep(1)
+
 end
 
 --[[
