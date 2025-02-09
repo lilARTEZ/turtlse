@@ -1,6 +1,6 @@
-3
+4
 spiral$4
 false
-40
+16
 10
 true
