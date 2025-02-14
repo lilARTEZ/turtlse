@@ -21,8 +21,7 @@ local commands={}
 
 
 
--- Function to run tasks safely
-local function RunProtected(func, ...)
+local function RunProtected(func, ...)-- Function to run tasks safely
     local success, result = pcall(func, ...)
     if not success then
         print("Error running function:", result)
@@ -31,8 +30,9 @@ local function RunProtected(func, ...)
     return result
 end
 
--- Function to run multiple tasks safely
-local function RunMultipleProtected(taskList, env)
+
+
+local function RunMultipleProtected(taskList, env)-- Function to run multiple tasks safely
     local results = {}
     env = env or _G  -- Default to _G if no env provided
 
@@ -719,24 +719,6 @@ end
 
 
 local function newData(fileName,data)
-    --[[
-    term.clear()
-    local err=false
-    for index, value in ipairs(data) do
-        if type(value)=="table" then
-            for index, value in ipairs(value) do
-                if type(value)=="table" then
-                    print('table: ',table.unpack(value))
-                    err=true
-                end
-            end
-        end
-    end
-    if err then
-        local info = debug.getinfo(2, "n")
-        print(info.name)
-    end
-    --]]
     local fileData={}
     for index, value in ipairs(data) do
         table.insert(fileData,value)
@@ -920,11 +902,19 @@ end
 local function manageInventory(mode)
     local mode = mode or 'all'
     local reservedSlots={}
-    if directive[2]=="mining" then--{'tag or name',number of reserved slots or 0 for no limit}, location in table dictates priority of the item
-        reservedSlots={{'fuel',0},{'minecraft:raw_iron',1},{'minecraft:redstone',1},{'minecraft:diamond',0},{'minecraft:stone',1}}
-    elseif directive[2]=="gathering" then
-        reservedSlots={{'fuel',0},{'minecraft:raw_iron',1},{'minecraft:redstone',1},{'minecraft:diamond',1},{'minecraft:stone',1}}
+
+    if type(mode)=="table" then
+        
+    else
+        if mode=="mining" then--{'tag or name',number of reserved slots or 0 for no limit}, location in table dictates priority of the item
+            reservedSlots={{'fuel',0},{'minecraft:raw_iron',1},{'minecraft:redstone',1},{'minecraft:diamond',0},{'minecraft:stone',1}}
+        elseif mode=="gathering" then
+            reservedSlots={{'fuel',0},{'minecraft:raw_iron',1},{'minecraft:redstone',1},{'minecraft:diamond',1},{'minecraft:stone',1}}
+        else
+            reservedSlots={{'fuel',0},{'minecraft:raw_iron',1},{'minecraft:redstone',1},{'minecraft:diamond',0},{'minecraft:stone',1}}
+        end
     end
+
 
     local inventory = checkInventory(nil)
     local order={}
@@ -2083,12 +2073,12 @@ end
 
 
 
-local function spiral(mode,height,maxiteration,fromBedrock)
+local function spiral(mode,height,maxiteration,fromBedrock,iteration)
     local fromBedrock = fromBedrock or false
     local mode = mode or false
     local height = height or false
     local maxiteration = maxiteration or 5
-    local iteration =  1
+    local iteration =  iteration or 1
 
 
     local function reachFloor()
@@ -2123,7 +2113,7 @@ local function spiral(mode,height,maxiteration,fromBedrock)
     Location = readFile(locationFile)
     local path={}
 
-    if height~=false then
+    if height~=false and fromBedrock~=false then
         goToHeight(height,fromBedrock)
         Location = readFile(locationFile)
     end
@@ -2198,9 +2188,6 @@ local function spiral(mode,height,maxiteration,fromBedrock)
 
         if type(moves)~="nil" then
             if action[#action] ~= 'end' then
-                
-            end
-            if action[#action] ~= 'end' then
                 table.insert(action,'end')
             end
 
@@ -2235,7 +2222,7 @@ local function spiral(mode,height,maxiteration,fromBedrock)
         if iteration>maxiteration then
             editData(actionFile,'spiral',{})
             goTo({0,0,0},'excavate')
-            return true
+            return iteration
         end
         iteration=iteration+1
     end
@@ -2243,21 +2230,19 @@ end
 
 
 
-local function calculateRequiredResource(item)
-    
-end
 
-
-
-local function mineForResources()
+local function mineForResources(mode,amount,sortMode)--provide a lost of levelsToMine {{levelFromBedrock,amount to mine, name}} or 'modename',optional amount
+    amount = amount or false
+    sortMode = sortMode or 'all'
 
 --[[
     --levels from bedrock
-    --diamond,redstone 5 
-    --iron 80
-    --copper
-    --coal?
-    --coal 160
+    --diamond 5 (-59)
+    --redstone 5 (-59)
+    --gold 96 (32)
+    --iron 79 (15)
+    --copper 112 (48)
+    --coal 108 (44)
 --]]
 
 
@@ -2267,12 +2252,43 @@ local function mineForResources()
         Location = readFile(locationFile)
     end
 
-    local bedrock = Location[3][1]
-    local resources={}
 
 
-    if checkInventory() then
-        
+    local levelsToMine = {}--{{levelFromBedrock,amount to mine, name}}
+
+
+    if type(mode)=="table" then
+        levelsToMine = mode
+    else
+        if mode=='turtle' then
+            levelsToMine={{79,7,'minecraft:raw_iron'},{5,1,'minecraft:redstone'},{5,3,'minecraft:diamond'}}
+            sortMode = 'mine'
+
+        elseif mode == 'fuel' then
+            levelsToMine = {{108,amount,'minecraft:coal'}}
+            sortMode = 'mine'
+        end
+    end
+
+
+
+    for index, value in ipairs(levelsToMine) do
+
+        local iteration = 1
+        while true do
+            Location = readFile(locationFile)
+            local itemAmount = checkInventory(value[3])[1] or 0
+
+            if itemAmount>= value[2] then
+                break
+            end
+
+
+            spiral(false,value[1],iteration,true,iteration)
+
+            manageInventory(sortMode)
+            iteration = iteration+1
+        end
     end
 end
 
@@ -2437,7 +2453,6 @@ customEnv.goTo = goTo
 customEnv.mineSpiral = mineSpiral
 customEnv.findHeight = findHeight
 customEnv.spiral = spiral
-customEnv.calculateRequiredResource = calculateRequiredResource
 customEnv.encodeTable = encodeTable
 customEnv.decodeTable = decodeTable
 customEnv.fileExists = fileExists
