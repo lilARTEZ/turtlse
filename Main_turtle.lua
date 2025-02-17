@@ -5,6 +5,7 @@ local stowageFile='stowage.txt'
 local memoryFile = 'memory.txt'
 local structureFile = '/structures/'
 local commandsFile = 'commands.txt'
+local manualOverrideFile = 'manualOverride.txt'
 local mainGitFile = 'https://github.com/lilARTEZ/turtlse/raw/main/Main_turtle.lua'
 local commandsGitFile = 'https://raw.githubusercontent.com/lilARTEZ/turtlse/refs/heads/main/commands.txt'
 
@@ -17,6 +18,7 @@ local blockNames={"minecraft:stone"}
 local stowage = {}
 local memory={"locations",{0,0,0,'home'},"end"}
 local commands={}
+local manualOverride = {}
 
 
 
@@ -1488,6 +1490,28 @@ end
 
 
 
+local function moveItemIntoChest(itemSlot,recievingChest,quantity)--recievingChest=('front','back'...)
+
+    quantity = quantity or 64
+
+    Location = Location or readFile(locationFile)
+    local facing=Location[2][1]
+
+    turn(recievingChest)
+
+    turtle.select(itemSlot)
+
+    if recievingChest=='top' then
+        turtle.dropUp(quantity)
+    elseif recievingChest=='bottom' then
+        turtle.dropDown(quantity)
+    else
+        turtle.drop(quantity)
+    end
+end
+
+
+
 local function emptyInventoryTo(storage_name)--storage_name=('front','back'...)
 
     Location = Location or readFile(locationFile)
@@ -1511,28 +1535,28 @@ end
 
 
 
-local function suckFromChest(storage_name)--storage_name=('front','back'...)
+local function suckAllFromChest(storage_name)--storage_name=('front','back'...)
 
     turn(storage_name)
+    local size = peripheral.call(storage_name,'size')
 
-    for i = 1, 16, 1 do
-
-        turtle.select(i)
-
+    for i = 1, size, 1 do
         if storage_name=='top' then
-            turtle.dropUp(64)
+            turtle.suckUp(64)
         elseif storage_name=='bottom' then
-            turtle.dropDown(64)
+            turtle.suckDown(64)
         else
-            turtle.drop(64)
+            turtle.suck(64)
         end
     end
 end
 
 
-local function getItemFromNeighbouringChests(item,quantity,destiny,processingChest,providerChests)
+local function getItemFromNeighbouringChests(item,quantity,destiny,processingChest,providerChests)--transfers items from provider chest into processing chest(on top of the turtle), and sucks into destiny slot
 
     providerChests=providerChests or {'front','right','left','back','top','bottom'}
+    processingChest = processingChest or 'top'
+    
     for index, value in ipairs(providerChests) do
         if value==processingChest then
             table.remove(providerChests,index)
@@ -1557,10 +1581,12 @@ local function getItemFromNeighbouringChests(item,quantity,destiny,processingChe
 
                             if list[providerChestItemSlot].count>quantity then
                                 peripheral.call(providerChest,'pushItems',processingChest,providerChestItemSlot,quantity,1)
+                                turtle.select(destiny)
                                 turtle.suckUp(quantity)
                             else
                                 peripheral.call(providerChest,'pushItems',processingChest,providerChestItemSlot,quantity,1)
                                 quantity=quantity-list[providerChestItemSlot].count
+                                turtle.select(destiny)
                                 turtle.suckUp(quantity)
                             end
                         end
@@ -1577,7 +1603,7 @@ end
 
 
 
-local function craft(craftings,searchStorage)--takes {{craftingName,quantity}}
+local function craft(craftings,searchStorage)--takes {{craftingName,quantity}},false - will only search for items in inventory
     local searchStorage = searchStorage or false
 
 
@@ -1636,7 +1662,7 @@ local function craft(craftings,searchStorage)--takes {{craftingName,quantity}}
                         for index, value in ipairs(recipes) do
                             local materials = value[1]
                             if materials[1][1]~=name and materials[1][2]~=nil then
-                                if craft({material})==false then
+                                if craft({material,material[2]-materialQuantity})==false then
                                     return false
                                 end
                             end
@@ -1646,25 +1672,58 @@ local function craft(craftings,searchStorage)--takes {{craftingName,quantity}}
                         return false
                     end
                 else
+                    local forbiddenSlotList = {}
                     for index, item in ipairs(recipe[2]) do
                         local slot=(index+math.floor(index/4))
 
+
                         if type(item)~= "nil" then
-                            moveItem(slot,item,quantity)
+                            table.insert(forbiddenSlotList,slot)
+                            turtle.select(slot)
+
+                            if turtle.getItemCount()>0 then
+
+
+                                for index, value in ipairs({4,8,12,12,14,15,16}) do
+
+                                    turtle.select(value)
+
+
+                                    if turtle.getItemCount()==0 or false or nil then
+
+                                        turtle.select(slot)
+                                        turtle.transferTo(value,64)
+                                        break
+
+                                    end
+                                end
+
+                                turtle.select(slot)
+
+
+                                if turtle.getItemCount()>0 then
+                                    --put item into other chest
+                                end
+                            end
+
+
+                            moveItemInInventory(slot,item,quantity,forbiddenSlotList)
                         end
                     end
                     for index, item in ipairs(recipe[2]) do
                         local slot=(index+math.floor(index/4))
 
                         if type(item)== "nil" then
-                            moveItem("nil",slot,quantity)
+                            --put item into other chest
                         end
+                    end
+                    for index, value in ipairs({4,8,12,12,14,15,16}) do
+                        --put item into other chest
                     end
                     turtle.craft(quantity)
                 end
             end
         end
-
     end
 end
 
@@ -2316,6 +2375,44 @@ end
 
 
 
+local function readCommandsFromFile(file,mode)-- true-delete returned command from file
+    mode = mode or true
+
+    local fileData = readFile(file)
+
+    local iter = 1
+    while iter<#fileData do
+
+        if type(fileData[iter])=="table" and #fileData[iter]==2 then
+            local command = fileData[iter][1]
+            local argumentCount = fileData[iter][2]
+            local arguments={command}
+            if mode then
+                if argumentCount>0 then
+                    for i = 1, argumentCount, 1 do
+                        table.insert( arguments,fileData[iter+1])
+                        table.remove( fileData,iter+1 )
+                    end
+                end
+                table.remove( fileData, iter )
+                writeFile(file,fileData) 
+            else
+                if argumentCount>0 then
+                    for i = 1, argumentCount, 1 do
+                        table.insert( arguments,fileData[iter+i])
+                    end
+                end
+            end
+            return arguments
+        end
+
+        iter=iter+1
+    end
+    return false
+end
+
+
+
 local function getNewCommand()
 
     commands=readFile(commandsFile)
@@ -2345,19 +2442,9 @@ local function getNewCommand()
     end
     
     if type(commands[2])=="table" then
-        local command = commands[2][1]
-        local argumentCount = commands[2][2]
-        local arguments={command}
-        if argumentCount>0 then
-            for i = 1, argumentCount, 1 do
-                table.insert( arguments,commands[3])
-                table.remove( commands,3 )
-            end
-        end
-        table.remove( commands, 2 )
-        writeFile(commandsFile,commands)
-        return arguments
+        readCommandsFromFile(commandsFile)
     end
+
 end
 
 
@@ -2404,6 +2491,13 @@ else
 end
 
 
+if not fileExists(manualOverrideFile) or type(readFile(manualOverrideFile)[1])=='nil' then
+    writeFile(manualOverrideFile,{})
+else
+    manualOverride = readFile(manualOverrideFile)
+end
+
+
 local function say(message)
     term.clear()
     term.setCursorPos(1,1)
@@ -2431,7 +2525,7 @@ end
 
 
 
--- Create a custom environment and add Say function
+-- Create a custom environment and add Say function 
 local customEnv = {}
 customEnv.say = say  -- Manually add Say to the environment
 customEnv.updateFileFromGit = updateFileFromGit
@@ -2443,7 +2537,7 @@ customEnv.getBuildingStorage = getBuildingStorage
 customEnv.getMaterialQuantityByBuilding = getMaterialQuantityByBuilding
 customEnv.moveItemInInventory = moveItemInInventory
 customEnv.emptyInventoryTo = emptyInventoryTo
-customEnv.suckFromChest = suckFromChest
+customEnv.suckAllFromChest = suckAllFromChest
 customEnv.getItemFromNeighbouringChests = getItemFromNeighbouringChests
 customEnv.craft = craft
 customEnv.avoidPath = avoidPath
@@ -2571,6 +2665,24 @@ end
 customEnv.findState = findState
 
 
+local function override()
+    if not fileExists(manualOverrideFile) or type(readFile(manualOverrideFile)[1])=='nil' then
+        writeFile(manualOverrideFile,{})
+    else
+        while true do
+            local state = readCommandsFromFile(manualOverrideFile)
+            if type(state)=="boolean" then
+                if state==false then
+                    break
+                end
+            else
+                runCommand(state)
+            end
+        end
+    end
+end
+
+
 --RunProtected(writeFile,locationFile,{{0,0,0},{0,' - facing Z'},{nil,' - bedrockLevel'},{1000,' - fuelcap'}})-- only for tests remove afterwards
 --RunProtected(writeFile,directiveFile,{{"Drone"},{"start"},{0,0,0,' - hive home'},{0}})
 
@@ -2581,6 +2693,7 @@ RunProtected(findState)
 
 while true do
 
+    RunProtected(override)
     local commandData = RunProtected(getNewCommand)
     RunProtected(runCommand,commandData)
     os.sleep(1)
