@@ -224,9 +224,9 @@ void relevelSingleValve(int valvePin,int angleType){
       angles();
 
       if(angleType>0){
-        probingData[iter-1]=KalmanAngleRoll;
-      }else{
         probingData[iter-1]=KalmanAnglePitch;
+      }else{
+        probingData[iter-1]=KalmanAngleRoll;
       }
 
       delay(probingTime/probingSize);
@@ -241,15 +241,19 @@ void relevelSingleValve(int valvePin,int angleType){
 
     gaussAvg=gaussSum/probingSize;////no work ):
 
-    if(gaussAvg<ValveCalibrationAllowance && valvePin==relay2){
+    if(gaussAvg<ValveCalibrationAllowance && valvePin==relay1){
       Serial.print("gaussAvg");
       Serial.println(gaussAvg);
       break;
-    }else if(gaussAvg>-ValveCalibrationAllowance && valvePin==relay1){
+    }else if(gaussAvg>-ValveCalibrationAllowance && valvePin==relay2){
       Serial.print("gaussAvg");
       Serial.println(gaussAvg);
       break;
     }
+    Serial.print("valve: ");
+    Serial.print(valvePin);
+    Serial.print(" gaussAvg: ");
+    Serial.println(gaussAvg);
   }
   digitalWrite(valvePin, HIGH);
 }
