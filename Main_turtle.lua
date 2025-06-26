@@ -901,7 +901,7 @@ end
 
 
 
-local function manageInventory(mode)
+local function manageInventory(mode)--"mining" for iron redstone coal, stone and diamond
     local mode = mode or 'all'
     local reservedSlots={}
 
@@ -1445,7 +1445,7 @@ end
 
 
 
-local function moveItemInInventory(destiny,item,quantity,forbiddenSlotList)
+local function moveItemInInventory(destiny,item,quantity,forbiddenSlotList)-- move quatitiy of items into a single slot in inventory except forbiddenSlotList
     quantity=quantity or 1
     forbiddenSlotList=forbiddenSlotList or {}
 
@@ -1492,12 +1492,15 @@ end
 
 local function moveItemIntoChest(itemSlot,recievingChest,quantity)--recievingChest=('front','back'...)
 
+    recievingChest = recievingChest or 'front'
     quantity = quantity or 64
 
     Location = Location or readFile(locationFile)
     local facing=Location[2][1]
 
-    turn(recievingChest)
+    if recievingChest ~= 'front' then
+        turn(recievingChest)
+    end
 
     turtle.select(itemSlot)
 
@@ -1643,84 +1646,88 @@ local function craft(craftings,searchStorage)--takes {{craftingName,quantity}},f
         if recipes==false then
             print('Failed to find crafting recipe for: '..name)
             return false
-        end
-
-        for index, recipe in ipairs(recipes) do
-            local materials = recipe[1]
+        else
+            for index, recipe in ipairs(recipes) do
+                local materials = recipe[1]
+        
+                for index, material in ipairs(materials) do
+                    local materialData = getMaterialQuantity(material[1],searchStorage)
+                    local materialQuantity = materialData[1]
+                    local materialIds = materialData[2]
+                    print('material '..materialQuantity)
+        
+                    if materialQuantity<material[2] then
+                        local recipes = craftingRecipe(material[1])
     
-            for index, material in ipairs(materials) do
-                local materialData = getMaterialQuantity(material[1],searchStorage)
-                local materialQuantity = materialData[1]
-                local materialIds = materialData[2]
-                print('material '..materialQuantity)
+                        if recipes~=false then
     
-                if materialQuantity<material[2] then
-                    local recipes = craftingRecipe(material[1])
-
-                    if recipes~=false then
-
-                        for index, value in ipairs(recipes) do
-                            local materials = value[1]
-                            if materials[1][1]~=name and materials[1][2]~=nil then
-                                if craft({material,material[2]-materialQuantity})==false then
-                                    return false
-                                end
-                            end
-                        end
-                    else
-                        print('lacking at least '..material[2]-materialQuantity..' '..material[1]..' to craft '..name)
-                        return false
-                    end
-                else
-                    local forbiddenSlotList = {}
-                    for index, item in ipairs(recipe[2]) do
-                        local slot=(index+math.floor(index/4))
-
-
-                        if type(item)~= "nil" then
-                            table.insert(forbiddenSlotList,slot)
-                            turtle.select(slot)
-
-                            if turtle.getItemCount()>0 then
-
-
-                                for index, value in ipairs({4,8,12,12,14,15,16}) do
-
-                                    turtle.select(value)
-
-
-                                    if turtle.getItemCount()==0 or false or nil then
-
-                                        turtle.select(slot)
-                                        turtle.transferTo(value,64)
-                                        break
-
+                            for index, value in ipairs(recipes) do
+                                local materials = value[1]
+                                if materials[1][1]~=name and materials[1][2]~=nil then
+                                    if craft({material,material[2]-materialQuantity})==false then
+                                        return false
                                     end
                                 end
-
+                            end
+                        else
+                            print('lacking at least '..material[2]-materialQuantity..' '..material[1]..' to craft '..name)
+                            return false
+                        end
+                    else
+                        local forbiddenSlotList = {}
+                        for index, item in ipairs(recipe[2]) do
+                            local slot=(index+math.floor(index/4))
+    
+    
+                            if type(item)~= "nil" then
+                                table.insert(forbiddenSlotList,slot)
                                 turtle.select(slot)
-
-
+    
                                 if turtle.getItemCount()>0 then
-                                    --put item into other chest
+    
+    
+                                    for index, value in ipairs({4,8,12,13,14,15,16}) do
+    
+                                        turtle.select(value)
+    
+    
+                                        if turtle.getItemCount()==0 or false or nil then
+    
+                                            turtle.select(slot)
+                                            turtle.transferTo(value,64)
+                                            break
+                                        end
+                                    end
+    
+                                    turtle.select(slot)
+    
+    
+                                    if turtle.getItemCount()>0 then
+                                        moveItemIntoChest(slot,craftingChest)
+                                    end
+                                end
+    
+    
+                                if checkInventory(item)[1]<quantity then
+                                    moveItemInInventory(slot,item,checkInventory(item)[1],forbiddenSlotList)
+                                    getItemFromNeighbouringChests(item,quantity,slot,craftingChest,providerChests)
+                                else
+                                    moveItemInInventory(slot,item,quantity,forbiddenSlotList)
                                 end
                             end
-
-
-                            moveItemInInventory(slot,item,quantity,forbiddenSlotList)
                         end
-                    end
-                    for index, item in ipairs(recipe[2]) do
-                        local slot=(index+math.floor(index/4))
-
-                        if type(item)== "nil" then
-                            --put item into other chest
+                        for index, item in ipairs(recipe[2]) do
+                            local slot=(index+math.floor(index/4))
+    
+                            if type(item)== "nil" then
+                                moveItemIntoChest(slot,craftingChest)
+                            end
                         end
+                        for index, value in ipairs({4,8,12,13,14,15,16}) do
+                            moveItemIntoChest(value,craftingChest)
+                        end
+                        turtle.craft(quantity)
                     end
-                    for index, value in ipairs({4,8,12,12,14,15,16}) do
-                        --put item into other chest
-                    end
-                    turtle.craft(quantity)
                 end
             end
         end
@@ -1949,6 +1956,11 @@ local function goTo(destiny,mode)
 
         if mode=='excavate' then
             while true do
+                --[[
+                if #checkInventory()>14 then
+                    manageInventory("mining")
+                end
+                ]]
                 Location = readFile(locationFile)
                 local excavated=excavate(Location[1],Location[2][1])
                 if excavated[1]==false then
@@ -2448,53 +2460,54 @@ local function getNewCommand()
 end
 
 
-
-if not fileExists(locationFile) or type(readFile(locationFile)[1])=='nil' then
-    writeFile(locationFile,Location)
-else
-    Location = readFile(locationFile)
-end
-
-
-if not fileExists(directiveFile) or type(readFile(directiveFile)[1])=='nil' then
-    writeFile(directiveFile,directive)
-else
-    directive = readFile(directiveFile)
-end
-
-
-if not fileExists(actionFile) then
-    writeFile(actionFile,action)
-else
-    action=readFile(actionFile)
-end
-
-
-if not fileExists(stowageFile) or type(readFile(stowageFile)[1])=='nil' then
-    writeFile(stowageFile,stowage)
-else
-    stowage = readFile(stowageFile)
-end
-
-
-if not fileExists(memoryFile) or type(readFile(memoryFile)[1])=='nil' then
-    writeFile(memoryFile,memory)
-else
-    memory = readFile(memoryFile)
-end
-
-
-if not fileExists(commandsFile) or type(readFile(commandsFile)[1])=='nil' then
-    writeFile(commandsFile,commands)
-else
-    commands = readFile(commandsFile)
-end
-
-
-if not fileExists(manualOverrideFile) or type(readFile(manualOverrideFile)[1])=='nil' then
-    writeFile(manualOverrideFile,{})
-else
-    manualOverride = readFile(manualOverrideFile)
+local function SetupFiles()
+    if not fileExists(locationFile) or type(readFile(locationFile)[1])=='nil' then
+        writeFile(locationFile,Location)
+    else
+        Location = readFile(locationFile)
+    end
+    
+    
+    if not fileExists(directiveFile) or type(readFile(directiveFile)[1])=='nil' then
+        writeFile(directiveFile,directive)
+    else
+        directive = readFile(directiveFile)
+    end
+    
+    
+    if not fileExists(actionFile) then
+        writeFile(actionFile,action)
+    else
+        action=readFile(actionFile)
+    end
+    
+    
+    if not fileExists(stowageFile) or type(readFile(stowageFile)[1])=='nil' then
+        writeFile(stowageFile,stowage)
+    else
+        stowage = readFile(stowageFile)
+    end
+    
+    
+    if not fileExists(memoryFile) or type(readFile(memoryFile)[1])=='nil' then
+        writeFile(memoryFile,memory)
+    else
+        memory = readFile(memoryFile)
+    end
+    
+    
+    if not fileExists(commandsFile) or type(readFile(commandsFile)[1])=='nil' then
+        writeFile(commandsFile,commands)
+    else
+        commands = readFile(commandsFile)
+    end
+    
+    
+    if not fileExists(manualOverrideFile) or type(readFile(manualOverrideFile)[1])=='nil' then
+        writeFile(manualOverrideFile,{})
+    else
+        manualOverride = readFile(manualOverrideFile)
+    end 
 end
 
 
@@ -2689,6 +2702,7 @@ end
 
 term.clear()
 term.setCursorPos(1,1)
+SetupFiles()
 RunProtected(findState)
 
 while true do
