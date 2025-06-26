@@ -21,6 +21,13 @@ local commands={}
 local manualOverride = {}
 
 
+--[[
+
+For storage item info there should be a request for materials to main computer, and then get the location back
+same for structures, and locations in memory, to only be the ones necesary for the turtle.
+
+
+]]
 
 
 local function RunProtected(func, ...)-- Function to run tasks safely
