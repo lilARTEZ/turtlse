@@ -14,6 +14,7 @@ local directive={{"Inquisitor"},{"start"},{0,0,0,' - hive home'},{0}}
 local action={}
 local avoidedBlocks={"computercraft:turtle","forge:chests"}
 local blockTags={{"minecraft:logs",{'minecraft:oak_log'}},{"minecraft:sand",{}},{"forge:ores",{}},{'minecraft:stone',{"minecraft:stone","minecraft:andesite"}}}
+local surfaceTags={"minecraft:sand","minecraft:logs"}
 local blockNames={"minecraft:stone"}
 local stowage = {}
 local memory={"locations",{0,0,0,'home'},"end"}
@@ -27,11 +28,13 @@ For storage item info there should be a request for materials to main computer, 
 same for structures, and locations in memory, to only be the ones necesary for the turtle.
 
 //////
-Broken, to fix
+Broken/to be tested:
 Crafting
+harvesting surface materials
 
 ///////
 To do:
+surface mapping
 
 ]]
 
@@ -426,6 +429,8 @@ local function scan(mode,bable)--(what to can:'up'or'all'..,what to look for'avo
         tags=avoidedBlocks
     elseif bable=='ores' then
         tags={{"forge:ores"}}
+    elseif bable=='surface' then
+        tags=surfaceTags
     else
         tags=blockTags
     end
@@ -1820,7 +1825,8 @@ end
 
 
 
-local function excavate(startLocation,startFacing)
+local function excavate(startLocation,startFacing,mode)-- mode null - for mining ores, surface for harvesting
+    local mode = mode or "ores"
     Location = readFile(locationFile)
     local scanned={"excavate",startLocation,startFacing}
 
@@ -1834,7 +1840,11 @@ local function excavate(startLocation,startFacing)
         end
     end
 
-    local scannus = scan('all','ores')
+    if mode=="ores" then
+        local scannus = scan('all','ores')
+    elseif mode=="surface" then
+        local scannus = scan('all','surface')
+    end
 
     for index, value1 in ipairs(scannus) do
         for index, value in ipairs(scanned) do
@@ -1935,14 +1945,42 @@ local function excavate(startLocation,startFacing)
 end
 
 
+local function reachFloor()
+    Location = readFile(locationFile)
+    local state,datatable = turtle.inspectDown()
+    while true do
+        if type(datatable.tags)=="nil" or state==false or datatable.tags[ "minecraft:replaceable" ]==true then
+            Location=move(-3,true)
+            writeFile(locationFile,Location)
+        else
+            break
+        end
+        state,datatable = turtle.inspectDown()
+    end
 
-local function goTo(destiny,mode)
+
+    local state,datatable = turtle.inspectUp()
+    while true do
+        if type(datatable.tags)~="nil" and state~=false and datatable.tags[ "minecraft:replaceable" ]~=true then
+            Location=move(3,true)
+            writeFile(locationFile,Location)
+        else
+            break
+        end
+        state,datatable = turtle.inspectUp()
+    end
+end
+
+
+
+local function goTo(destiny,mode,map)-- mode excavate, to mine blocks or explore to search for resourecs or map, map -save scanned blocks
 
     local destiny=destiny or false
     local mode=mode or 'none'
     Location = readFile(locationFile)
     local action = {}
     local returnHome = false
+    local map = map or false
 
     if mode=='return' then
         returnHome=true
@@ -1976,6 +2014,32 @@ local function goTo(destiny,mode)
                 ]]
                 Location = readFile(locationFile)
                 local excavated=excavate(Location[1],Location[2][1])
+                if excavated[1]==false then
+
+                    if excavated[2]~=Location[1] then
+                        goTo(excavated[2])
+                    end
+
+                    turnTo(excavated[3])
+                    Location = readFile(locationFile)
+                    break
+
+                else
+                    if excavated[2]~=Location[1] then
+                        goTo(excavated[2])
+                    end
+                end
+            end
+        elseif mode=='explore' then
+            reachFloor()
+            while true do
+                --[[
+                if #checkInventory()>14 then
+                    manageInventory("mining")
+                end
+                ]]
+                Location = readFile(locationFile)
+                local excavated=excavate(Location[1],Location[2][1],"surface")
                 if excavated[1]==false then
 
                     if excavated[2]~=Location[1] then
@@ -2157,40 +2221,12 @@ end
 
 
 
-local function spiral(mode,height,maxiteration,fromBedrock,iteration)
+local function spiral(mode,height,maxiteration,fromBedrock,iteration)-- mode excavate or explore for surface exploitation
     local fromBedrock = fromBedrock or false
-    local mode = mode or false
+    local mode = mode or "excavate"
     local height = height or false
     local maxiteration = maxiteration or 5
     local iteration =  iteration or 1
-
-
-    local function reachFloor()
-        Location = readFile(locationFile)
-        local state,datatable = turtle.inspectDown()
-        while true do
-            if type(datatable.tags)=="nil" or state==false or datatable.tags[ "minecraft:replaceable" ]==true then
-                Location=move(-3,true)
-                writeFile(locationFile,Location)
-            else
-                break
-            end
-            state,datatable = turtle.inspectDown()
-        end
-
-
-        local state,datatable = turtle.inspectUp()
-        while true do
-            if type(datatable.tags)~="nil" and state~=false and datatable.tags[ "minecraft:replaceable" ]~=true then
-                Location=move(3,true)
-                writeFile(locationFile,Location)
-            else
-                break
-            end
-            state,datatable = turtle.inspectUp()
-        end
-    end
-
 
 
     local action = {'spiral'}
@@ -2284,12 +2320,9 @@ local function spiral(mode,height,maxiteration,fromBedrock,iteration)
             while action[5]~="end" do
                 Location = readFile(locationFile)
 
-                if mode then
-                    reachFloor()
-                    goTo(action[5])
-                else
-                    goTo(action[5],'excavate')
-                end
+
+                goTo(action[5],mode)
+
 
                 table.remove( action,5 )
 
