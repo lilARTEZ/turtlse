@@ -1,8 +1,7 @@
-1
-say$1
-EXTERMINATE ALL GNOMES !!!
-refuel$1
+2
+spiral$4
+excavate
+30
+20
 true
-mineForResources$1
-turtle
 
