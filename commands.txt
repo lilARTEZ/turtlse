@@ -1,6 +1,6 @@
-4
-spiral$4
-false
-16
-10
-true
+1
+say$1
+EXTERMINATE ALL GNOMES !!!
+mineForResources$1
+turtle
+
