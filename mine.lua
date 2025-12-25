@@ -210,6 +210,26 @@ local function appendFile(inputFile,data)
 end
 
 
+local function copyFile(source, destination)
+    local inputFile = io.open(source, "r")
+    if not inputFile then
+        error("Could not open source file: " .. source)
+    end
+
+    local outputFile = io.open(destination, "w")
+    if not outputFile then
+        inputFile:close()
+        error("Could not open destination file: " .. destination)
+    end
+
+    for line in inputFile:lines() do
+        outputFile:write(line .. "\n")
+    end
+
+    inputFile:close()
+    outputFile:close()
+end
+
 
 local function findInMemory(name)
     local memory = readFile(memoryFile)
@@ -2846,7 +2866,7 @@ local function mineChunk()
     turtle.select(5)
     turtle.place()
 
-    for i = 1, 16, 1 do
+    for i = 1, 12, 1 do
         RunProtected(goTo,{chunkStart[1]-1,chunkStart[2]+3,chunkStart[3]})
         turtle.select(1)
         turtle.suckUp(64)
@@ -2868,15 +2888,18 @@ local function mineChunk()
     turtle.drop()
 
     while true do
-        moveItemInInventory(3, 'computercraft:turtle_normal',64,{3})
-        if checkInventory('computercraft:turtle_normal')[2]==16 then
+        if checkInventory('computercraft:turtle_normal')[2]==11 then
             break
         end
+        turtle.dig()
         sleep(1)
     end
 end
 
 local function main()
+    copyFile('disk/startup.txt','startup.lua')
+    copyFile('disk/commands.txt','commands.txt')
+    copyFile('disk/memory.txt','memory.txt')
     local home = readFile(memoryFile)[1]
     home = {home[1],home[2],home[3]}
     RunProtected(goTo,{home[1],home[2],home[3]})
