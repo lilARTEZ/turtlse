@@ -2907,3 +2907,5 @@ local function main()
     mineChunk()
     RunProtected(goTo,{home[1],home[2],home[3]})
 end
+
+main()
