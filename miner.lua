@@ -2896,6 +2896,7 @@ end
 local function main()
     copyFile('disk/startup.txt','startup.lua')
     copyFile('disk/commands.txt','commands.txt')
+    SetupFiles()
     refuel()
     mineStripe()
     RunProtected(goTo,{0,0,0})
