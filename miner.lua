@@ -2863,7 +2863,7 @@ local function mineChunk()
     turtle.select(5)
     turtle.place()
 
-    for i = 1, 16, 1 do
+    for i = 1, 12, 1 do
         RunProtected(goTo,{chunkStart[1]-1,chunkStart[2]+3,chunkStart[3]})
         turtle.select(1)
         turtle.suckUp(64)
@@ -2885,18 +2885,20 @@ local function mineChunk()
     turtle.drop()
 
     while true do
-        moveItemInInventory(3, 'computercraft:turtle_normal',64,{3})
-        if checkInventory('computercraft:turtle_normal')[2]==16 then
+        if checkInventory('computercraft:turtle_normal')[2]==11 then
             break
         end
+        turtle.dig()
         sleep(1)
     end
 end
 
 local function main()
-    copyFile('disk/startup.lua','startup.lua')
+    copyFile('disk/startup.txt','startup.lua')
     copyFile('disk/commands.txt','commands.txt')
     refuel()
     mineStripe()
     RunProtected(goTo,{0,0,0})
 end
+
+main()
