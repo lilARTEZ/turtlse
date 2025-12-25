@@ -2900,7 +2900,8 @@ local function main()
     copyFile('disk/startup.txt','startup.lua')
     copyFile('disk/commands.txt','commands.txt')
     copyFile('disk/memory.txt','memory.txt')
-    local home = readFile(memoryFile)[1]
+    SetupFiles()
+    local home = readFile(memoryFile)[2]
     home = {home[1],home[2],home[3]}
     RunProtected(goTo,{home[1],home[2],home[3]})
     refuel()
